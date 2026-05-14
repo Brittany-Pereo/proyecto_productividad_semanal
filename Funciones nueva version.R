@@ -1788,3 +1788,4 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     datos_acumulado = acumulado_totales_graf
   )
 }
+#HOLA DE NUEVO
