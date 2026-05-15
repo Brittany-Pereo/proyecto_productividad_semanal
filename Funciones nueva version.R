@@ -1719,8 +1719,12 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     grafica_acumulado = grafica_acumulado,
     grafica_mes = grafica_mes,
     datos_mes = mes_graf,
-    titulo_acumulado = paste0(nombre_titulo, " acumulado"),
-    titulo_mes = paste0(nombre_titulo, " - ", mes_grafica_nombre),
+    titulo_acumulado = paste0(nombre_titulo, " del 01 de enero al ",
+                              stringr::str_to_sentence(format(miercoles_mas_reciente, "%d de %B")),
+                              " (2023-2026)"),
+    titulo_mes = paste0(nombre_titulo, " en ",
+                        stringr::str_to_sentence(format(miercoles_mas_reciente, "%B")),
+                        " (2023-2026)"),
     datos_acumulado = acumulado_totales_graf
   )
 }
