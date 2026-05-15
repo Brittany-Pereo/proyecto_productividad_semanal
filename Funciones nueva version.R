@@ -1287,18 +1287,34 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
   var <- rlang::ensym(variable)
   var_chr <- rlang::as_string(var)
   
+  fecha_fin_mes_grafica <- lubridate::ceiling_date(fecha_corte, "month") -
+    lubridate::days(1)
+  
   # -----------------------------------------------------------------------
-  # META 2026 AL CORTE
+  # PROYECCIÓN 2026
+  # Acumulado: modelo_profet al corte
+  # Mes: modelo_profet_completo_nowcast al cierre del mes
   # -----------------------------------------------------------------------
   
-  meta_2026 <- metas_entidad %>% 
-    dplyr::summarise(meta = sum(.data[[var_chr]], na.rm = TRUE)) %>% 
-    dplyr::pull(meta)
+  proyeccion_2026_corte <- modelo_profet_completo_nowcast %>% 
+    dplyr::filter(
+      fecha >= as.Date("2026-01-01"),
+      fecha <= fecha_corte
+    ) %>% 
+    dplyr::summarise(
+      proyeccion = sum(.data[[var_chr]], na.rm = TRUE)
+    ) %>% 
+    dplyr::pull(proyeccion)
   
-  meta_2026_corte <- meta_2026 *
-    as.numeric(fecha_corte - as.Date("2026-01-01") + 1) / 365
-  
-  meta_2026_mes <- meta_2026 / 12
+  proyeccion_2026_mes <- modelo_profet_completo_nowcast %>% 
+    dplyr::filter(
+      fecha >= as.Date(sprintf("2026-%02d-01", mes_grafica)),
+      fecha <= fecha_fin_mes_grafica
+    ) %>% 
+    dplyr::summarise(
+      proyeccion = sum(.data[[var_chr]], na.rm = TRUE)
+    ) %>% 
+    dplyr::pull(proyeccion)
   
   # -----------------------------------------------------------------------
   # OBSERVADO ACUMULADO POR FECHA INSERT
@@ -1326,7 +1342,7 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     )
   
   # -----------------------------------------------------------------------
-  # TOTAL HISTÓRICO AL MISMO CORTE
+  # TOTAL HISTÓRICO ACUMULADO AL MISMO CORTE
   # -----------------------------------------------------------------------
   
   acumulado_total <- df_final_resumen %>% 
@@ -1356,11 +1372,10 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     dplyr::left_join(acumulado_fecha_insert, by = "anio") %>% 
     dplyr::left_join(acumulado_total, by = "anio") %>% 
     dplyr::mutate(
-      
       valor_fecha_insert = dplyr::coalesce(valor_fecha_insert, 0),
       
       valor_total = dplyr::case_when(
-        anio == 2026 ~ meta_2026_corte,
+        anio == 2026 ~ proyeccion_2026_corte,
         TRUE ~ valor_total
       ),
       
@@ -1369,21 +1384,16 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       superior_graf = dplyr::case_when(
         anio == 2023 ~ 0,
         anio %in% c(2024, 2025) ~ valor_total - valor_fecha_insert,
-        anio == 2026 ~ meta_2026_corte - valor_fecha_insert,
+        anio == 2026 ~ proyeccion_2026_corte - valor_fecha_insert,
         TRUE ~ 0
       ),
       
-      superior_graf = dplyr::if_else(
-        superior_graf < 0,
-        0,
-        superior_graf
-      ),
-      
+      superior_graf = dplyr::if_else(superior_graf < 0, 0, superior_graf),
       total_graf = valor_fecha_insert + superior_graf,
       
       tipo_superior = dplyr::case_when(
         anio %in% c(2024, 2025) ~ "Registro extemporáneo",
-        anio == 2026 ~ "Meta 2026",
+        anio == 2026 ~ "Proyección 2026",
         TRUE ~ NA_character_
       ),
       
@@ -1407,10 +1417,7 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     ((valor_2026_acum / valor_2025_acum) - 1) * 100
   )
   
-  y_flecha_acum <- max(
-    acumulado_totales_graf$total_graf,
-    na.rm = TRUE
-  ) * 1.08
+  y_flecha_acum <- max(acumulado_totales_graf$total_graf, na.rm = TRUE) * 1.08
   
   # -----------------------------------------------------------------------
   # GRÁFICA ACUMULADA
@@ -1420,17 +1427,14 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     acumulado_totales_graf,
     ggplot2::aes(x = x)
   ) +
-    
     ggplot2::geom_col(
       ggplot2::aes(y = total_graf, fill = tipo_superior),
       width = 0.65
     ) +
-    
     ggplot2::geom_col(
       ggplot2::aes(y = valor_fecha_insert, fill = "Observado"),
       width = 0.65
     ) +
-    
     ggplot2::geom_text(
       ggplot2::aes(
         y = valor_fecha_insert / 2,
@@ -1440,7 +1444,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::geom_text(
       ggplot2::aes(
         y = total_graf + max(total_graf, na.rm = TRUE) * 0.03,
@@ -1449,7 +1452,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::geom_segment(
       ggplot2::aes(
         x = 3.05,
@@ -1457,58 +1459,46 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
         y = y_flecha_acum,
         yend = y_flecha_acum
       ),
-      arrow = ggplot2::arrow(
-        length = grid::unit(0.18, "cm")
-      ),
+      arrow = ggplot2::arrow(length = grid::unit(0.18, "cm")),
       linewidth = 1.2,
       color = "#A87918"
     ) +
-    
     ggplot2::annotate(
       "text",
       x = 3.5,
       y = y_flecha_acum * 1.03,
-      label = paste0(
-        pct_incremento_acum,
-        "% de incremento anual"
-      ),
+      label = paste0(pct_incremento_acum, "% de incremento anual"),
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::scale_x_continuous(
       breaks = c(1, 2, 3, 4),
       labels = c("2023", "2024", "2025", "2026")
     ) +
-    
     ggplot2::scale_fill_manual(
       values = c(
         "Observado" = "#154F45",
         "Registro extemporáneo" = "#C9A227",
-        "Meta 2026" = "#9CAFC0"
+        "Proyección 2026" = "#9CAFC0"
       ),
       breaks = c(
         "Observado",
         "Registro extemporáneo",
-        "Meta 2026"
+        "Proyección 2026"
       ),
       na.translate = FALSE
     ) +
-    
     ggplot2::scale_y_continuous(
       labels = scales::comma,
       expand = ggplot2::expansion(mult = c(0, 0.18))
     ) +
-    
     ggplot2::labs(
       title = NULL,
       x = NULL,
       y = NULL,
       fill = NULL
     ) +
-    
     ggplot2::theme_minimal(base_size = 14) +
-    
     ggplot2::theme(
       legend.position = "bottom",
       panel.grid.minor = ggplot2::element_blank()
@@ -1524,7 +1514,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       anio_insert = lubridate::year(fecha_insert),
       
       fecha_corte_insert = dplyr::case_when(
-        
         anio == 2023 ~ lubridate::ymd(
           paste0(
             "2023-",
@@ -1532,7 +1521,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
             "-15"
           )
         ),
-        
         TRUE ~ lubridate::ymd(
           paste0(
             anio_insert,
@@ -1542,7 +1530,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
         )
       )
     ) %>% 
-    
     dplyr::filter(
       anio %in% c(2023, 2024, 2025, 2026),
       lubridate::month(fecha) == mes_grafica,
@@ -1551,26 +1538,20 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       anio_insert == anio,
       fecha_insert <= fecha_corte_insert
     ) %>% 
-    
     dplyr::group_by(anio) %>% 
-    
     dplyr::summarise(
       valor_fecha_insert = sum(.data[[var_chr]], na.rm = TRUE),
       .groups = "drop"
     )
   
   # -----------------------------------------------------------------------
-  # TOTAL MES HISTÓRICO
+  # TOTAL MES HISTÓRICO COMPLETO
   # -----------------------------------------------------------------------
   
   mes_total <- df_final_resumen %>% 
-    
     dplyr::mutate(
-      
       anio = lubridate::year(fecha),
-      
       fecha_corte_mes = dplyr::case_when(
-        
         anio == 2023 ~ lubridate::ymd(
           paste0(
             "2023-",
@@ -1578,19 +1559,15 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
             "-15"
           )
         ),
-        
         TRUE ~ as.Date("2999-12-31")
       )
     ) %>% 
-    
     dplyr::filter(
       anio %in% c(2023, 2024, 2025),
       lubridate::month(fecha) == mes_grafica,
       fecha <= fecha_corte_mes
     ) %>% 
-    
     dplyr::group_by(anio) %>% 
-    
     dplyr::summarise(
       valor_total = sum(.data[[var_chr]], na.rm = TRUE),
       .groups = "drop"
@@ -1603,52 +1580,31 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
   mes_graf <- tibble::tibble(
     anio = c(2023, 2024, 2025, 2026)
   ) %>% 
-    
-    dplyr::left_join(
-      mes_fecha_insert,
-      by = "anio"
-    ) %>% 
-    
-    dplyr::left_join(
-      mes_total,
-      by = "anio"
-    ) %>% 
-    
+    dplyr::left_join(mes_fecha_insert, by = "anio") %>% 
+    dplyr::left_join(mes_total, by = "anio") %>% 
     dplyr::mutate(
-      
-      valor_fecha_insert = dplyr::coalesce(
-        valor_fecha_insert,
-        0
-      ),
+      valor_fecha_insert = dplyr::coalesce(valor_fecha_insert, 0),
       
       valor_total = dplyr::case_when(
-        anio == 2026 ~ meta_2026_mes,
+        anio == 2026 ~ proyeccion_2026_mes,
         TRUE ~ valor_total
       ),
       
-      valor_total = dplyr::coalesce(
-        valor_total,
-        valor_fecha_insert
-      ),
+      valor_total = dplyr::coalesce(valor_total, valor_fecha_insert),
       
       superior_graf = dplyr::case_when(
         anio == 2023 ~ 0,
         anio %in% c(2024, 2025) ~ valor_total - valor_fecha_insert,
-        anio == 2026 ~ meta_2026_mes - valor_fecha_insert,
+        anio == 2026 ~ proyeccion_2026_mes - valor_fecha_insert,
         TRUE ~ 0
       ),
       
-      superior_graf = dplyr::if_else(
-        superior_graf < 0,
-        0,
-        superior_graf
-      ),
-      
+      superior_graf = dplyr::if_else(superior_graf < 0, 0, superior_graf),
       total_graf = valor_fecha_insert + superior_graf,
       
       tipo_superior = dplyr::case_when(
         anio %in% c(2024, 2025) ~ "Registro extemporáneo",
-        anio == 2026 ~ "Meta 2026",
+        anio == 2026 ~ "Proyección 2026",
         TRUE ~ NA_character_
       ),
       
@@ -1672,10 +1628,7 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     ((valor_2026 / valor_2025) - 1) * 100
   )
   
-  y_flecha_mes <- max(
-    mes_graf$total_graf,
-    na.rm = TRUE
-  ) * 1.08
+  y_flecha_mes <- max(mes_graf$total_graf, na.rm = TRUE) * 1.08
   
   # -----------------------------------------------------------------------
   # GRÁFICA MES
@@ -1685,17 +1638,14 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     mes_graf,
     ggplot2::aes(x = x)
   ) +
-    
     ggplot2::geom_col(
       ggplot2::aes(y = total_graf, fill = tipo_superior),
       width = 0.65
     ) +
-    
     ggplot2::geom_col(
       ggplot2::aes(y = valor_fecha_insert, fill = "Observado"),
       width = 0.65
     ) +
-    
     ggplot2::geom_text(
       ggplot2::aes(
         y = valor_fecha_insert / 2,
@@ -1705,7 +1655,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::geom_text(
       ggplot2::aes(
         y = total_graf + max(total_graf, na.rm = TRUE) * 0.03,
@@ -1714,7 +1663,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::geom_segment(
       ggplot2::aes(
         x = 3.05,
@@ -1722,58 +1670,46 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
         y = y_flecha_mes,
         yend = y_flecha_mes
       ),
-      arrow = ggplot2::arrow(
-        length = grid::unit(0.18, "cm")
-      ),
+      arrow = ggplot2::arrow(length = grid::unit(0.18, "cm")),
       linewidth = 1.2,
       color = "#A87918"
     ) +
-    
     ggplot2::annotate(
       "text",
       x = 3.5,
       y = y_flecha_mes * 1.03,
-      label = paste0(
-        pct_incremento_mes,
-        "% de incremento anual"
-      ),
+      label = paste0(pct_incremento_mes, "% de incremento anual"),
       fontface = "bold",
       size = 4
     ) +
-    
     ggplot2::scale_x_continuous(
       breaks = c(1, 2, 3, 4),
       labels = c("2023", "2024", "2025", "2026")
     ) +
-    
     ggplot2::scale_fill_manual(
       values = c(
         "Observado" = "#154F45",
         "Registro extemporáneo" = "#C9A227",
-        "Meta 2026" = "#9CAFC0"
+        "Proyección 2026" = "#9CAFC0"
       ),
       breaks = c(
         "Observado",
         "Registro extemporáneo",
-        "Meta 2026"
+        "Proyección 2026"
       ),
       na.translate = FALSE
     ) +
-    
     ggplot2::scale_y_continuous(
       labels = scales::comma,
       expand = ggplot2::expansion(mult = c(0, 0.18))
     ) +
-    
     ggplot2::labs(
       title = NULL,
       x = NULL,
       y = NULL,
       fill = NULL
     ) +
-    
     ggplot2::theme_minimal(base_size = 14) +
-    
     ggplot2::theme(
       legend.position = "bottom",
       panel.grid.minor = ggplot2::element_blank()
@@ -1788,4 +1724,3 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     datos_acumulado = acumulado_totales_graf
   )
 }
-#HOLA DE NUEVO
