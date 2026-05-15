@@ -4,8 +4,6 @@ library(dplyr)
 library(officer)
 library(flextable)
 library(lubridate)
-
-source("Scripts/Presentación nacional semanal/Funciones nueva version.R")
 Sys.setlocale("LC_TIME", "Spanish_Mexico")
 hoy <- Sys.Date()
 
@@ -314,10 +312,10 @@ SELECT
 
 FROM read_parquet(
   [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/consulta_externa_01_01_2026_a_06_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/planificacion_familiar_01_01_2026_a_06_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_bucal_01_01_2026_a_06_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_mental_01_01_2026_a_06_05_2026.parquet'
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/consulta_externa_01_01_2026_a_13_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/planificacion_familiar_01_01_2026_a_13_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_bucal_01_01_2026_a_13_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_mental_01_01_2026_a_13_05_2026.parquet'
   ],
   union_by_name = true
 )
@@ -333,43 +331,45 @@ df_2026_consultas <- dbGetQuery(con, query_consultas_2026)
 query_pq_2026 <- "
 SELECT
   clues,
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y') AS fecha,
 
   CAST(
     COALESCE(
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y %H:%M'),
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y'),
-      TRY_CAST(fecha_insert AS TIMESTAMP)
+      TRY_STRPTIME(CAST(fecha_egreso_x AS VARCHAR), '%d/%m/%Y'),
+      TRY_STRPTIME(CAST(fecha_egreso_x AS VARCHAR), '%Y-%m-%d'),
+      TRY_CAST(fecha_egreso_x AS TIMESTAMP)
     ) AS DATE
-  ) AS fecha_insert,
+  ) AS fecha,
+
+CAST(
+  COALESCE(
+    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%y/%m/%d %H:%M:%S'),
+    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%y/%m/%d %H:%M'),
+    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%Y-%m-%d %H:%M:%S'),
+    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%Y-%m-%d'),
+    TRY_CAST(fecha_insert AS TIMESTAMP)
+  ) AS DATE
+) AS fecha_insert,
 
   COUNT(*) AS procedimientos_quirurgicos,
   COUNT(DISTINCT curp_hash32) AS total_curps_distintas_pq
 
 FROM read_parquet(
   [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_01_01_2026_a_06_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_dentro_quirofano_01_01_2026_a_06_05_2026.parquet'
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_01_01_2026_a_13_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_dentro_quirofano_01_01_2026_a_13_05_2026.parquet'
   ],
   union_by_name = true
 )
 
 GROUP BY
   clues,
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y'),
-  CAST(
-    COALESCE(
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y %H:%M'),
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y'),
-      TRY_CAST(fecha_insert AS TIMESTAMP)
-    ) AS DATE
-  )
+  fecha,
+  fecha_insert
 "
-
 df_2026_pq <- dbGetQuery(con, query_pq_2026)
 
 df_2026_egresos <- arrow::read_parquet(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/egresos_01_01_2026_a_06_05_2026.parquet"
+  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/egresos_01_01_2026_a_13_05_2026.parquet"
 ) %>% 
   mutate(
     fecha = as.Date(fecha_egreso),
@@ -393,12 +393,13 @@ df_final <- bind_rows(df_2020_2023, df_2024, df_2025,
   filter(!is.na(fecha))
 # Estimaciones de modelo profet -------------------------------------------
 modelo_profet <- readxl::read_xlsx(
-  "Data/profet/nowcast_todes.xlsx") %>% 
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx") %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             nowcast, observadas) %>% 
   filter(fecha >= "2026-01-01") %>% 
   tidyr::pivot_wider(names_from = tipo_consulta,
-                     values_from = nowcast) %>% 
+                     values_from = nowcast,
+                     values_fill = 0) %>% 
   group_by(fecha) %>% 
   summarise(consultas_totales = sum(general, especialidad),
             consultas_generales = sum(general),
@@ -407,7 +408,7 @@ modelo_profet <- readxl::read_xlsx(
             egresos = sum(egresos))
 
 modelo_profet_entidad <- readxl::read_xlsx(
-  "Data/profet/nowcast_todes_estados.xlsx") %>% 
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx") %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast,entidad) %>% 
   filter(fecha >= "2026-01-01",
@@ -427,15 +428,33 @@ modelo_profet_entidad <- readxl::read_xlsx(
     entidad == "HRAES" ~ "HRAES",
     TRUE  ~ stringr::str_to_title(entidad)
   )) %>% 
-  filter(!entidad %in% c("Iniems", "Guanajuato"))
+  filter(!entidad %in% c("Iniems", "Guanajuato", "Yucatán",
+                         "Yucatan"))
 
 modelo_profet_completo <- readxl::read_xlsx(
-  "Data/profet/nowcast_todes_estados.xlsx") %>% 
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+  ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
   filter(fecha >= "2026-01-01") %>% 
   tidyr::pivot_wider(names_from = tipo_consulta,
                      values_from = observadas,
+                     values_fill = 0) %>% 
+  group_by(fecha) %>% 
+  summarise(consultas_totales = sum(general, especialidad),
+            consultas_generales = sum(general),
+            consultas_de_especialidad = sum(especialidad),
+            procedimientos_quirurgicos = sum(qx),
+            egresos = sum(egresos)) 
+
+modelo_profet_completo_nowcast <- readxl::read_xlsx(
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+) %>% 
+  transmute(fecha = as.Date(dia), tipo_consulta,
+            observadas, nowcast, entidad) %>% 
+  filter(fecha >= "2026-01-01") %>% 
+  tidyr::pivot_wider(names_from = tipo_consulta,
+                     values_from = nowcast,
                      values_fill = 0) %>% 
   group_by(fecha) %>% 
   summarise(consultas_totales = sum(general, especialidad),
@@ -506,7 +525,7 @@ fecha_block <- block_list(
       line_spacing = 1)))
 
 hbc_bajos <- readxl::read_xlsx(
-  "Data raw/cluster_11_rutas_geo_rutas_sencillo_VF23022026.xlsx"
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/cluster_11_rutas_geo_rutas_sencillo_VF23022026.xlsx"
 ) %>%
   dplyr::pull(clues_imb_hbc)
 # Metas y totales de años previos --------------------------------------------------------------
@@ -1043,15 +1062,6 @@ df_final_resumen <- df_final %>%
     egresos = sum(egresos, na.rm = TRUE),
     .groups = "drop")
 
-metas_entidad <- catalogo_metas %>% 
-  summarise(
-    consultas_totales = sum(meta_general_anual, meta_especialidad_anual, na.rm = TRUE),
-    consultas_generales = sum(meta_general_anual, na.rm = TRUE),
-    consultas_de_especialidad = sum(meta_especialidad_anual, na.rm = TRUE),
-    procedimientos_quirurgicos = sum(meta_cirugia_anual, na.rm = TRUE),
-    egresos = sum(meta_egresos_anual, na.rm = TRUE)
-  )
-
 graficas_totales <- generar_graficas_productividad(consultas_totales, "Consultas totales")
 graficas_generales <- generar_graficas_productividad(consultas_generales, "Consultas generales")
 graficas_especialidad <- generar_graficas_productividad(consultas_de_especialidad, "Consultas de especialidad")
@@ -1163,12 +1173,20 @@ tabla_pq <- df_final %>%
   )
 
 tabla_3 <- tabla_pq %>% 
-  slice(1:10)
+  filter(Avance == 0)
 
-ft_3 <- ft_estilo_menor(tabla_3) %>%
+n_por_slide_1 <- ceiling(nrow(tabla_final) / 2)
+
+tabla_3_1 <- dplyr::slice(tabla_3, 1:n_por_slide_1)
+tabla_3_2 <- dplyr::slice(tabla_3, (n_por_slide_1 + 1):dplyr::n())
+
+ft_3_1 <- ft_estilo_menor(tabla_3_1) %>%
   flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
   flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
 
+ft_3_2 <- ft_estilo_menor(tabla_3_2) %>%
+  flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
+  flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
 
 # Graficas semanales por fecha insert -------------------------------------
 # Bases semanales por fecha de registro ----------------------------------
@@ -1206,8 +1224,7 @@ avance_entidad <- df_final %>%
 data_cg <- limpiar_data_avance(
   avance_entidad %>% filter(anio == 2026),
   consultas_generales,
-  meta_cg
-)
+  meta_cg)
 
 data_esp <- limpiar_data_avance(
   avance_entidad %>% filter(anio == 2026),
@@ -1441,7 +1458,7 @@ valuebox_8 <- do.call(
 # -------------------------------------------------------------------------
 #PRESENTACION
 # -------------------------------------------------------------------------
-pptx <- read_pptx("Data raw/Master presentación nacional.pptx")
+pptx <- read_pptx("C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/Master presentación nacional.pptx")
 
 pptx <- pptx %>%
   add_slide(layout = "Portada 3", master = "Tema de Office") %>%
@@ -1488,17 +1505,17 @@ pptx <- pptx %>%
   add_slide(layout = "Graficas semanal", master = "Tema de Office") %>%
   ph_with(value = "Consultas totales", location = ph_location_label("Título 1")) %>%
   ph_with(value = "60,000,000", location = ph_location_label("Meta anual")) %>%
-  ph_with(value = percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
+  ph_with(value = scales::percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(avance_2024_t),
-      avance_2025 = comma(avance_2025_t),
-      avance_2026 = comma(avance_2026_t),
-      pct_2024 = percent(avance_2024_t / productividad_ct_2024),
-      pct_2025 = percent(avance_2025_t / productividad_ct_2025),
-      pct_2026 = percent(avance_2026_t / productividad_ct_2026)),
+      avance_2024 = scales::comma(avance_2024_t),
+      avance_2025 = scales::comma(avance_2025_t),
+      avance_2026 = scales::comma(avance_2026_t),
+      pct_2024 = scales::percent(avance_2024_t / productividad_ct_2024),
+      pct_2025 = scales::percent(avance_2025_t / productividad_ct_2025),
+      pct_2026 = scales::percent(avance_2026_t / productividad_ct_2026)),
     location = ph_location_label("tabla_1")) %>%
   ph_with(value = rvg::dml(ggobj = grafica_semanal_tot$plot), location = ph_location_label("Grafica")) %>%
   ph_with(value = valuebox_0, location = ph_location_label("value"))
@@ -1521,17 +1538,17 @@ pptx <- pptx %>%
   add_slide(layout = "Graficas semanal", master = "Tema de Office") %>%
   ph_with(value = "Consultas generales", location = ph_location_label("Título 1")) %>%
   ph_with(value = "52,500,000", location = ph_location_label("Meta anual")) %>%
-  ph_with(value = percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
+  ph_with(value = scales::percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(p_2024_g),
-      avance_2025 = comma(p_2025_g),
-      avance_2026 = comma(p_2026_gm),
-      pct_2024 = percent(p_2024_g / productividad_cg_2024),
-      pct_2025 = percent(p_2025_g / productividad_cg_2025),
-      pct_2026 = percent(p_2026_gm / productividad_cg_2026)
+      avance_2024 = scales::comma(p_2024_g),
+      avance_2025 = scales::comma(p_2025_g),
+      avance_2026 = scales::comma(p_2026_gm),
+      pct_2024 = scales::percent(p_2024_g / productividad_cg_2024),
+      pct_2025 = scales::percent(p_2025_g / productividad_cg_2025),
+      pct_2026 = scales::percent(p_2026_gm / productividad_cg_2026)
     ),
     location = ph_location_label("tabla_1")
   ) %>%
@@ -1556,17 +1573,17 @@ pptx <- pptx %>%
   add_slide(layout = "Graficas semanal", master = "Tema de Office") %>%
   ph_with(value = "Consultas de especialidad", location = ph_location_label("Título 1")) %>%
   ph_with(value = "7,500,000", location = ph_location_label("Meta anual")) %>%
-  ph_with(value = percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
+  ph_with(value = scales::percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3,
       alto_columna = 0.32,
-      avance_2024 = comma(p_2024_e),
-      avance_2025 = comma(p_2025_e),
-      avance_2026 = comma(p_2026_em),
-      pct_2024 = percent(p_2024_e / productividad_ce_2024),
-      pct_2025 = percent(p_2025_e / productividad_ce_2025),
-      pct_2026 = percent(p_2026_em / productividad_ce_2026)
+      avance_2024 = scales::comma(p_2024_e),
+      avance_2025 = scales::comma(p_2025_e),
+      avance_2026 = scales::comma(p_2026_em),
+      pct_2024 = scales::percent(p_2024_e / productividad_ce_2024),
+      pct_2025 = scales::percent(p_2025_e / productividad_ce_2025),
+      pct_2026 = scales::percent(p_2026_em / productividad_ce_2026)
     ),
     location = ph_location_label("tabla_1")
   ) %>%
@@ -1591,17 +1608,17 @@ pptx <- pptx %>%
   add_slide(layout = "Graficas semanal", master = "Tema de Office") %>%
   ph_with(value = "Procedimientos quirúrgicos", location = ph_location_label("Título 1")) %>%
   ph_with(value = "1,100,000", location = ph_location_label("Meta anual")) %>%
-  ph_with(value = percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
+  ph_with(value = scales::percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(p_2024_pq),
-      avance_2025 = comma(p_2025_pq),
-      avance_2026 = comma(p_2026_pqm),
-      pct_2024 = percent(p_2024_pq / productividad_pq_2024),
-      pct_2025 = percent(p_2025_pq / productividad_pq_2025),
-      pct_2026 = percent(p_2026_pqm / productividad_pq_2026)
+      avance_2024 = scales::comma(p_2024_pq),
+      avance_2025 = scales::comma(p_2025_pq),
+      avance_2026 = scales::comma(p_2026_pqm),
+      pct_2024 = scales::percent(p_2024_pq / productividad_pq_2024),
+      pct_2025 = scales::percent(p_2025_pq / productividad_pq_2025),
+      pct_2026 = scales::percent(p_2026_pqm / productividad_pq_2026)
     ),
     location = ph_location_label("tabla_1")
   ) %>%
@@ -1626,17 +1643,17 @@ pptx <- pptx %>%
   add_slide(layout = "Graficas semanal", master = "Tema de Office") %>%
   ph_with(value = "Egresos", location = ph_location_label("Título 1")) %>%
   ph_with(value = "1,600,000", location = ph_location_label("Meta anual")) %>%
-  ph_with(value = percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
+  ph_with(value = scales::percent(meta_hoy), location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(egreso_2024),
-      avance_2025 = comma(egreso_2025),
-      avance_2026 = comma(egreso_2026),
-      pct_2024 = percent(egreso_2024 / productividad_egreso_2024),
-      pct_2025 = percent(egreso_2025 / productividad_egreso_2025),
-      pct_2026 = percent(egreso_2026 / productividad_egreso_2026)
+      avance_2024 = scales::comma(egreso_2024),
+      avance_2025 = scales::comma(egreso_2025),
+      avance_2026 = scales::comma(egreso_2026),
+      pct_2024 = scales::percent(egreso_2024 / productividad_egreso_2024),
+      pct_2025 = scales::percent(egreso_2025 / productividad_egreso_2025),
+      pct_2026 = scales::percent(egreso_2026 / productividad_egreso_2026)
     ),
     location = ph_location_label("tabla_1")
   ) %>%
@@ -1674,12 +1691,24 @@ pptx <- pptx %>%
   add_slide(layout = "Una grafica", master = "Tema de Office") %>%
   ph_with("Unidades médicas con menor rendimiento en cirugías",
           ph_location_label("Título 1")) %>%
-  ph_with(value = ft_3,
+  ph_with(value = ft_3_1,
           location = ph_location(
             left   = 0.55,
             top    = 1.62,
             width  = 16.85,
             height = 10.45))
+
+pptx <- pptx %>%
+  add_slide(layout = "Una grafica", master = "Tema de Office") %>%
+  ph_with("Unidades médicas con menor rendimiento en cirugías",
+          ph_location_label("Título 1")) %>%
+  ph_with(value = ft_3_2,
+          location = ph_location(
+            left   = 0.55,
+            top    = 1.62,
+            width  = 16.85,
+            height = 10.45))
+
 
 pptx <- pptx %>%
   add_slide(layout = "Anexo",
@@ -1694,18 +1723,18 @@ pptx <- pptx %>%
     value = "60,000,000",
     location = ph_location_label("Meta anual")
   ) %>%
-  ph_with(value = percent(meta_hoy),
+  ph_with(value = scales::percent(meta_hoy),
           location = ph_location_label("Objetivo pct")) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(avance_2024_t_insert),
-      avance_2025 = comma(avance_2025_t_insert),
-      avance_2026 = comma(avance_2026_t_insert),
-      pct_2024 = percent(avance_2024_t_insert / productividad_ct_2024),
-      pct_2025 = percent(avance_2025_t_insert / productividad_ct_2025),
-      pct_2026 = percent(avance_2026_t_insert / productividad_ct_2026)),
+      avance_2024 = scales::comma(avance_2024_t_insert),
+      avance_2025 = scales::comma(avance_2025_t_insert),
+      avance_2026 = scales::comma(avance_2026_t_insert),
+      pct_2024 = scales::percent(avance_2024_t_insert / productividad_ct_2024),
+      pct_2025 = scales::percent(avance_2025_t_insert / productividad_ct_2025),
+      pct_2026 = scales::percent(avance_2026_t_insert / productividad_ct_2026)),
     location = ph_location_label("tabla_1")) %>%
   ph_with(value = rvg::dml(ggobj = grafica_semanal_tot_rez$plot),
           location = ph_location_label("Grafica")) %>%
@@ -1833,19 +1862,19 @@ pptx <- pptx %>%
     location = ph_location_label("Meta anual")
   ) %>%
   ph_with(
-    value = percent(meta_hoy),
+    value = scales::percent(meta_hoy),
     location = ph_location_label("Objetivo pct")
   ) %>%
   ph_with(
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = comma(egreso_2024_insert),
-      avance_2025 = comma(egreso_2025_insert),
-      avance_2026 = comma(egreso_2026_insert),
-      pct_2024 = percent(egreso_2024_insert / productividad_egreso_2024),
-      pct_2025 = percent(egreso_2025_insert / productividad_egreso_2025),
-      pct_2026 = percent(egreso_2026_insert / productividad_egreso_2026)),
+      avance_2024 = scales::comma(egreso_2024_insert),
+      avance_2025 = scales::comma(egreso_2025_insert),
+      avance_2026 = scales::comma(egreso_2026_insert),
+      pct_2024 = scales::percent(egreso_2024_insert / productividad_egreso_2024),
+      pct_2025 = scales::percent(egreso_2025_insert / productividad_egreso_2025),
+      pct_2026 = scales::percent(egreso_2026_insert / productividad_egreso_2026)),
     location = ph_location_label("tabla_1")) %>%
   ph_with(
     value = rvg::dml(ggobj = grafica_semanal_egresos_rez$plot),
