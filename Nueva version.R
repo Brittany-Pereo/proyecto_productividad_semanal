@@ -1173,12 +1173,20 @@ tabla_pq <- df_final %>%
   )
 
 tabla_3 <- tabla_pq %>% 
-  slice(1:10)
+  filter(Avance == 0)
 
-ft_3 <- ft_estilo_menor(tabla_3) %>%
+n_por_slide_1 <- ceiling(nrow(tabla_final) / 2)
+
+tabla_3_1 <- dplyr::slice(tabla_3, 1:n_por_slide_1)
+tabla_3_2 <- dplyr::slice(tabla_3, (n_por_slide_1 + 1):dplyr::n())
+
+ft_3_1 <- ft_estilo_menor(tabla_3_1) %>%
   flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
   flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
 
+ft_3_2 <- ft_estilo_menor(tabla_3_2) %>%
+  flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
+  flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
 
 # Graficas semanales por fecha insert -------------------------------------
 # Bases semanales por fecha de registro ----------------------------------
@@ -1683,12 +1691,24 @@ pptx <- pptx %>%
   add_slide(layout = "Una grafica", master = "Tema de Office") %>%
   ph_with("Unidades médicas con menor rendimiento en cirugías",
           ph_location_label("Título 1")) %>%
-  ph_with(value = ft_3,
+  ph_with(value = ft_3_1,
           location = ph_location(
             left   = 0.55,
             top    = 1.62,
             width  = 16.85,
             height = 10.45))
+
+pptx <- pptx %>%
+  add_slide(layout = "Una grafica", master = "Tema de Office") %>%
+  ph_with("Unidades médicas con menor rendimiento en cirugías",
+          ph_location_label("Título 1")) %>%
+  ph_with(value = ft_3_2,
+          location = ph_location(
+            left   = 0.55,
+            top    = 1.62,
+            width  = 16.85,
+            height = 10.45))
+
 
 pptx <- pptx %>%
   add_slide(layout = "Anexo",
