@@ -881,8 +881,7 @@ grafica_avance_cgen <- grafica_avance_entidades(
   size_pct = 4,
   size_meta = 3,
   size_ejes = 10,
-  size_meta_txt = 4,
-  umbral_pct_fuera = 0.24)
+  size_meta_txt = 4)
 
 grafica_avance_cesp <- grafica_avance_entidades(
   data_esp,
@@ -893,8 +892,7 @@ grafica_avance_cesp <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 grafica_avance_pq <- grafica_avance_entidades(
   data_pq_entidad,
@@ -905,8 +903,7 @@ grafica_avance_pq <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 grafica_avance_egresos <- grafica_avance_entidades(
   data_egresos,
@@ -917,8 +914,7 @@ grafica_avance_egresos <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 # Valiu box semanal -------------------------------------------------------
 valuebox_0 <- do.call(
@@ -1925,5 +1921,5 @@ pptx <- pptx %>%
     location = ph_location_label("value"))
 
 print(pptx, target = 
-        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026 (semana 18).pptx")
+        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026 (semana 19).pptx")
 
