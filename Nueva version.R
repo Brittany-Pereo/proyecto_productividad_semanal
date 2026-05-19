@@ -4,6 +4,7 @@ library(dplyr)
 library(officer)
 library(flextable)
 library(lubridate)
+library(scales)
 Sys.setlocale("LC_TIME", "Spanish_Mexico")
 hoy <- Sys.Date()
 
@@ -408,28 +409,44 @@ modelo_profet <- readxl::read_xlsx(
             egresos = sum(egresos))
 
 modelo_profet_entidad <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx") %>% 
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
-            observadas, nowcast,entidad) %>% 
+            observadas, nowcast, entidad) %>% 
   filter(fecha >= "2026-01-01",
          fecha <= fecha_corte) %>% 
   tidyr::pivot_wider(names_from = tipo_consulta,
-                     values_from = observadas,
+                     values_from = c(observadas, nowcast),
+                     names_glue = "{tipo_consulta}_{.value}",
                      values_fill = 0) %>% 
   group_by(entidad) %>% 
-  summarise(consultas_totales = sum(general, especialidad),
-            consultas_generales = sum(general),
-            consultas_de_especialidad = sum(especialidad),
-            procedimientos_quirurgicos = sum(qx),
-            egresos = sum(egresos)) %>% 
-  mutate(entidad = case_when(
-    entidad == "MICHOACAN DE OCAMPO" ~ "Michoacán",
-    entidad == "VERACRUZ DE IGNACIO DE LA LLAVE" ~ "Veracruz",
-    entidad == "HRAES" ~ "HRAES",
-    TRUE  ~ stringr::str_to_title(entidad)
-  )) %>% 
-  filter(!entidad %in% c("Iniems", "Guanajuato", "Yucatán",
-                         "Yucatan"))
+  summarise(
+    consultas_totales_observadas = sum(general_observadas, especialidad_observadas),
+    consultas_generales_observadas = sum(general_observadas),
+    consultas_de_especialidad_observadas = sum(especialidad_observadas),
+    procedimientos_quirurgicos_observadas = sum(qx_observadas),
+    egresos_observadas = sum(egresos_observadas),
+    
+    consultas_totales_nowcast = sum(general_nowcast, especialidad_nowcast),
+    consultas_generales_nowcast = sum(general_nowcast),
+    consultas_de_especialidad_nowcast = sum(especialidad_nowcast),
+    procedimientos_quirurgicos_nowcast = sum(qx_nowcast),
+    egresos_nowcast = sum(egresos_nowcast)) %>% 
+  mutate(
+    entidad = case_when(
+      entidad == "MICHOACAN DE OCAMPO" ~ "Michoacán",
+      entidad == "VERACRUZ DE IGNACIO DE LA LLAVE" ~ "Veracruz",
+      entidad == "HRAES" ~ "HRAES",
+      TRUE ~ stringr::str_to_title(entidad)),
+    consultas_totales_diferencias = consultas_de_especialidad_nowcast- consultas_totales_observadas,
+    consultas_generales_diferencias = consultas_generales_nowcast - consultas_generales_observadas,
+    consultas_de_especialidad_diferencias = consultas_de_especialidad_nowcast - consultas_de_especialidad_observadas,
+    procedimientos_quirurgicos_diferencias = procedimientos_quirurgicos_nowcast - procedimientos_quirurgicos_observadas,
+    egresos_diferencias = egresos_nowcast -egresos_observadas
+    ) %>% 
+  filter(!entidad %in% c(
+    "Iniems", "Guanajuato",
+    "Yucatán", "Yucatan"))
 
 modelo_profet_completo <- readxl::read_xlsx(
   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
@@ -822,33 +839,38 @@ metas_entidad <- catalogo_metas %>%
 avance_entidad <- left_join(modelo_profet_entidad,
                             metas_entidad, by = "entidad")
 
-limpiar_data_avance <- function(df, col_avance, col_meta) {
+limpiar_data_avance <- function(df, col_avance, col_modelo, col_meta) {
   df %>% 
     transmute(
       entidad,
       avance_total = {{ col_avance }},
+      avance_modelo = {{ col_modelo }},
       meta_total = {{ col_meta }},
       pct_avance_entidad = if_else(
         !is.na(meta_total) & meta_total > 0,
         avance_total / meta_total,
+        NA_real_),
+      pct_modelo_entidad = if_else(
+        !is.na(meta_total) & meta_total > 0,
+        avance_modelo / meta_total,
         NA_real_)) %>% 
     filter(
       !is.na(entidad),
       !is.na(pct_avance_entidad),
       is.finite(pct_avance_entidad))}
 
-xmax_seguro <- function(df, col = pct_avance_entidad, suma = 0.05) {
+xmax_seguro <- function(df, col = pct_modelo_entidad, suma = 0.05) {
   x <- max(df %>% pull({{ col }}), na.rm = TRUE)
   if (!is.finite(x)) meta_hoy + 0.10 else round(x + suma, 1)
 }
 
-data_cg <- limpiar_data_avance(avance_entidad, consultas_generales, meta_cg)
+data_cg <- limpiar_data_avance(avance_entidad, consultas_generales_observadas, consultas_generales_nowcast, meta_cg)
 
-data_esp <- limpiar_data_avance(avance_entidad, consultas_de_especialidad, meta_ce)
+data_esp <- limpiar_data_avance(avance_entidad, consultas_de_especialidad_observadas, consultas_de_especialidad_nowcast, meta_ce)
 
-data_pq_entidad <- limpiar_data_avance(avance_entidad, procedimientos_quirurgicos, meta_pq)
+data_pq_entidad <- limpiar_data_avance(avance_entidad, procedimientos_quirurgicos_observadas,procedimientos_quirurgicos_nowcast, meta_pq)
 
-data_egresos <- limpiar_data_avance(avance_entidad, egresos, meta_egresos)
+data_egresos <- limpiar_data_avance(avance_entidad, egresos_observadas, egresos_nowcast, meta_egresos)
 
 grafica_avance_cgen <- grafica_avance_entidades(
   data_cg,
@@ -859,8 +881,7 @@ grafica_avance_cgen <- grafica_avance_entidades(
   size_pct = 4,
   size_meta = 3,
   size_ejes = 10,
-  size_meta_txt = 4,
-  umbral_pct_fuera = 0.24)
+  size_meta_txt = 4)
 
 grafica_avance_cesp <- grafica_avance_entidades(
   data_esp,
@@ -871,8 +892,7 @@ grafica_avance_cesp <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 grafica_avance_pq <- grafica_avance_entidades(
   data_pq_entidad,
@@ -883,8 +903,7 @@ grafica_avance_pq <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 grafica_avance_egresos <- grafica_avance_entidades(
   data_egresos,
@@ -895,8 +914,7 @@ grafica_avance_egresos <- grafica_avance_entidades(
   size_meta = 3,
   size_ejes = 10,
   size_meta_txt = 4,
-  extra_derecha = 0.05,
-  umbral_pct_fuera = 0.14)
+  extra_derecha = 0.05)
 
 # Valiu box semanal -------------------------------------------------------
 valuebox_0 <- do.call(
@@ -1221,24 +1239,43 @@ avance_entidad <- df_final %>%
     .groups = "drop") %>% 
   left_join(metas_entidad, by = "entidad")
 
-data_cg <- limpiar_data_avance(
+limpiar_data_avance_2 <- function(df, col_avance, col_meta) {
+  df %>% 
+    transmute(
+      entidad,
+      avance_total = {{ col_avance }},
+      meta_total = {{ col_meta }},
+      pct_avance_entidad = if_else(
+        !is.na(meta_total) & meta_total > 0,
+        avance_total / meta_total,
+        NA_real_)) %>% 
+    filter(
+      !is.na(entidad),
+      !is.na(pct_avance_entidad),
+      is.finite(pct_avance_entidad))}
+
+xmax_seguro <- function(df, col = pct_modelo_entidad, suma = 0.05) {
+  x <- max(df %>% pull({{ col }}), na.rm = TRUE)
+  if (!is.finite(x)) meta_hoy + 0.10 else round(x + suma, 1)
+}
+
+data_cg <- limpiar_data_avance_2(
   avance_entidad %>% filter(anio == 2026),
   consultas_generales,
   meta_cg)
 
-data_esp <- limpiar_data_avance(
+data_esp <- limpiar_data_avance_2(
   avance_entidad %>% filter(anio == 2026),
   consultas_de_especialidad,
-  meta_ce
-)
+  meta_ce)
 
-data_pq_entidad <- limpiar_data_avance(
+data_pq_entidad <- limpiar_data_avance_2(
   avance_entidad %>% filter(anio == 2026),
   procedimientos_quirurgicos,
   meta_pq
 )
 
-data_egresos <- limpiar_data_avance(
+data_egresos <- limpiar_data_avance_2(
   avance_entidad %>% filter(anio == 2026),
   egresos,
   meta_egresos
@@ -1884,5 +1921,5 @@ pptx <- pptx %>%
     location = ph_location_label("value"))
 
 print(pptx, target = 
-        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026 (semana 18).pptx")
+        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026 (semana 19).pptx")
 
