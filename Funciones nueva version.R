@@ -804,6 +804,7 @@ obtener_total_tabla <- function(df, variable, anio_sel) {
 grafica_avance_entidades <- function(
     df,
     col_pct = "pct_avance_entidad",
+    col_pct_2 = "pct_modelo_entidad",
     meta_linea = meta_hoy,
     x_max = 0.25,
     breaks_by = 0.25,
@@ -812,6 +813,7 @@ grafica_avance_entidades <- function(
     verde_claro  = "#87A922",
     amarillo = "#F5DD61",
     rojo     = "#B91C1C",
+    dorado_imb = "#B38E5D",
     gris_fondo = "#FFFFFF",
     color_meta = "#8B1E3F",
     size_pct   = 5.2,
@@ -825,45 +827,81 @@ grafica_avance_entidades <- function(
   
   q1 <- meta_linea * 0.5
   q2 <- meta_linea * 0.625
-  q3 <- meta_linea * 0.75
   q4 <- meta_linea * 1.00
   
   df_plot <- df %>%
     dplyr::mutate(
-      pct = pmax(0, pmin(.data[[col_pct]], 1)),
+      pct_avance = pmax(0, pmin(.data[[col_pct]], 1)),
+      pct_modelo = pmax(0, pmin(.data[[col_pct_2]], 1)),
+      
       color = dplyr::case_when(
-        pct <  q1 ~ "rojo",
-        pct <  q2 ~ "amarillo",
-        pct <  q4 ~ "verde_claro",
-        TRUE      ~ "verde_fuerte"
+        pct_modelo < q1 ~ "rojo",
+        pct_modelo < q2 ~ "amarillo",
+        pct_modelo < q4 ~ "verde_claro",
+        TRUE            ~ "verde_fuerte"
       ),
-      etiqueta_pct  = scales::percent(pct, accuracy = 1),
+      
+      etiqueta_pct  = scales::percent(pct_modelo, accuracy = 1),
       etiqueta_meta = paste0("(", fmt_si(avance_total), "/", fmt_si(meta_total), ")"),
+      
       x_pct = dplyr::if_else(
-        pct <= umbral_pct_fuera,
-        pmax(0.012, pct + 0.006),
-        pmin(pct, x_max - 0.01)
+        pct_avance <= umbral_pct_fuera,
+        pmax(0.012, pct_avance + 0.006),
+        pmin(pct_avance, x_max - 0.01)
       ),
-      hjust_pct = dplyr::if_else(pct <= umbral_pct_fuera, 0, 1),
+      
+      hjust_pct = dplyr::if_else(pct_avance <= umbral_pct_fuera, 0, 1),
+      
       color_pct_txt = dplyr::if_else(
-        color == "verde_fuerte" & pct > umbral_pct_fuera, "white", "black"
+        color == "verde_fuerte" & pct_avance > umbral_pct_fuera,
+        "white", "black"
       ),
+      
       x_ratio = x_max + 0.01
     ) %>%
-    dplyr::arrange(desc(pct)) %>%
+    dplyr::arrange(desc(pct_modelo)) %>%
     dplyr::mutate(entidad = factor(entidad, levels = rev(entidad)))
   
   n_ent <- length(levels(df_plot$entidad))
   
   ggplot2::ggplot(df_plot, ggplot2::aes(y = entidad)) +
-    ggplot2::geom_col(ggplot2::aes(x = x_max), fill = gris_fondo, width = 0.78) +
-    ggplot2::geom_col(ggplot2::aes(x = pct, fill = color), width = 0.78) +
+    
+    ggplot2::geom_col(
+      ggplot2::aes(x = x_max),
+      fill = gris_fondo,
+      width = 0.78
+    ) +
+    
+    ggplot2::geom_col(
+      ggplot2::aes(x = pct_modelo),
+      fill = dorado_imb,
+      width = 0.78
+    ) +
+    
+    ggplot2::geom_col(
+      ggplot2::aes(x = pct_avance, fill = color),
+      width = 0.78
+    ) +
+    
     ggplot2::scale_fill_manual(
-      values = c(rojo = rojo, amarillo = amarillo, verde_claro = verde_claro, verde_fuerte = verde_fuerte),
+      values = c(
+        rojo = rojo,
+        amarillo = amarillo,
+        verde_claro = verde_claro,
+        verde_fuerte = verde_fuerte
+      ),
       guide = "none"
     ) +
+    
     ggplot2::scale_color_identity() +
-    ggplot2::geom_vline(xintercept = meta_linea, linetype = "dashed", linewidth = 1, color = color_meta) +
+    
+    ggplot2::geom_vline(
+      xintercept = meta_linea,
+      linetype = "dashed",
+      linewidth = 1,
+      color = color_meta
+    ) +
+    
     ggplot2::annotate(
       "label",
       x = meta_linea + meta_x_nudge,
@@ -876,21 +914,37 @@ grafica_avance_entidades <- function(
       label.size = NA,
       fill = "white"
     ) +
+    
     ggplot2::geom_text(
-      ggplot2::aes(x = x_pct, label = etiqueta_pct, hjust = hjust_pct, color = color_pct_txt),
-      fontface = "bold", size = size_pct, show.legend = FALSE
+      ggplot2::aes(
+        x = x_pct,
+        label = etiqueta_pct,
+        hjust = hjust_pct,
+        color = color_pct_txt
+      ),
+      fontface = "bold",
+      size = size_pct,
+      show.legend = FALSE
     ) +
+    
     ggplot2::geom_text(
       ggplot2::aes(x = x_ratio, label = etiqueta_meta),
-      hjust = 0, size = size_meta, color = "black"
+      hjust = 0,
+      size = size_meta,
+      color = "black"
     ) +
+    
     ggplot2::scale_x_continuous(
       limits = c(0, x_max + extra_derecha),
       breaks = seq(0, x_max, by = breaks_by),
       labels = scales::percent_format(accuracy = 1),
       expand = c(0, 0)
     ) +
-    ggplot2::scale_y_discrete(expand = ggplot2::expansion(mult = c(0.02, 0.16))) +
+    
+    ggplot2::scale_y_discrete(
+      expand = ggplot2::expansion(mult = c(0.02, 0.16))
+    ) +
+    
     ggplot2::coord_cartesian(clip = "off") +
     ggplot2::labs(x = NULL, y = NULL) +
     ggplot2::theme_minimal(base_size = size_ejes) +
@@ -900,9 +954,9 @@ grafica_avance_entidades <- function(
       panel.grid.major.y = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
       panel.grid.major.x = ggplot2::element_blank(),
-      panel.background   = ggplot2::element_rect(fill = NA, colour = NA),
-      plot.background    = ggplot2::element_rect(fill = NA, colour = NA),
-      legend.background  = ggplot2::element_rect(fill = NA, colour = NA),
+      panel.background = ggplot2::element_rect(fill = NA, colour = NA),
+      plot.background = ggplot2::element_rect(fill = NA, colour = NA),
+      legend.background = ggplot2::element_rect(fill = NA, colour = NA),
       legend.box.background = ggplot2::element_rect(fill = NA, colour = NA),
       panel.border = ggplot2::element_blank()
     )
