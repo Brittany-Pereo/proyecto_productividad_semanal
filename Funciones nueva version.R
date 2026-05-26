@@ -1153,6 +1153,204 @@ grafica_avance_entidades <- function(
     )
 }
 
+grafica_semanal_procedimiento <- function(
+    bases_todas,
+    procedimiento_sel = c("Generales", "Especialidad", "Totales",
+                          "Procedimientos quirúrgicos", "Egresos"),
+    anio_ref = 2026,
+    meta_semanal = NULL,
+    meta_texto = NULL,
+    out_dir = ".",
+    guardar_svg = FALSE,
+    width = 12,
+    height = 6,
+    fondo_verde = "#EAF7EF"
+) {
+  
+  procedimiento_sel <- match.arg(procedimiento_sel)
+  
+  base_grafica <- bases_todas %>%
+    dplyr::filter(procedimiento == procedimiento_sel) %>%
+    dplyr::rename(week = semana, consultas = total)
+  
+  # ---- Meses (labels abajo) ----
+  jan1_ref <- as.Date(sprintf("%d-01-01", anio_ref))
+  meses_df <- tibble::tibble(week = 1:52) %>%
+    dplyr::mutate(
+      fecha_inicio = jan1_ref + lubridate::days((week - 1) * 7),
+      mes_num = lubridate::month(fecha_inicio)
+    ) %>%
+    dplyr::group_by(mes_num) %>%
+    dplyr::summarise(
+      week_ini = min(week),
+      week_fin = max(week),
+      week_mid = (week_ini + week_fin) / 2,
+      .groups = "drop"
+    )
+  
+  meses_es <- c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic")
+  meses_df <- meses_df %>% dplyr::mutate(mes_lab = meses_es[mes_num])
+  
+  # ---- Labels fin de cada año ----
+  labels_fin <- base_grafica %>%
+    dplyr::filter(!is.na(consultas)) %>%
+    dplyr::group_by(anio) %>%
+    dplyr::slice_max(order_by = week, n = 1, with_ties = FALSE) %>%
+    dplyr::ungroup()
+  
+  # ✅ Ajuste inteligente: solo separar si se enciman
+  rng <- diff(range(base_grafica$consultas, na.rm = TRUE))
+  if (!is.finite(rng) || rng == 0) rng <- 1
+  
+  min_gap <- 0.06 * rng   # separación mínima entre etiquetas (ajusta 0.03–0.06)
+  
+  # Ordena por y (de abajo hacia arriba) y empuja SOLO cuando hay choque
+  labels_fin <- labels_fin %>%
+    dplyr::mutate(
+      x_lab = week + 0.8,
+      y_lab = consultas
+    ) %>%
+    dplyr::arrange(y_lab) %>%
+    dplyr::mutate(y_lab = {
+      y <- y_lab
+      if (length(y) >= 2) {
+        for (i in 2:length(y)) {
+          if (y[i] - y[i-1] < min_gap) {
+            y[i] <- y[i-1] + min_gap
+          }
+        }
+      }
+      y
+    }) %>%
+    dplyr::arrange(anio)  # opcional: mantiene orden estable
+  
+  slug <- tolower(gsub("[^a-z0-9]+", "_", procedimiento_sel))
+  file_svg <- file.path(out_dir, sprintf("grafica_%s_semanal_2024_2026.svg", slug))
+  
+  # ---- Plot ----
+  p <- ggplot2::ggplot(
+    base_grafica,
+    ggplot2::aes(x = week, y = consultas, color = factor(anio), group = anio)
+  )
+  
+  # 1) Fondo verde + línea de meta
+  if (!is.null(meta_semanal)) {
+    if (is.null(meta_texto)) {
+      meta_texto <- paste0("Meta semanal: ", scales::comma(meta_semanal))
+    }
+    
+    p <- p +
+      ggplot2::annotate(
+        "rect",
+        xmin = -Inf, xmax = Inf,
+        ymin = meta_semanal, ymax = Inf,
+        fill = fondo_verde,
+        alpha = 1
+      ) +
+      ggplot2::geom_hline(
+        yintercept = meta_semanal,
+        color = "#C9A227",
+        linewidth = 0.9
+      )
+  }
+  
+  # 2) Líneas por año
+  p <- p + ggplot2::geom_line(linewidth = 1.3, na.rm = TRUE)
+  
+  # 3) Labels de año (NO se enciman)
+  p <- p +
+    ggplot2::geom_label(
+      data = labels_fin,
+      ggplot2::aes(x = x_lab, y = y_lab, label = as.character(anio), color = factor(anio)),
+      inherit.aes = FALSE,
+      hjust = 0,
+      fontface = "bold",
+      size = 4,
+      label.size = 1,
+      fill = scales::alpha("white", 0.65)
+    )
+  
+  # 4) Texto de meses
+  p <- p +
+    ggplot2::geom_text(
+      data = meses_df,
+      ggplot2::aes(x = week_mid, y = -Inf, label = mes_lab),
+      inherit.aes = FALSE,
+      vjust = -0.6,
+      fontface = "bold",
+      size = 3.6,
+      color = "#264653"
+    )
+  
+  # 5) Texto de meta
+  if (!is.null(meta_semanal)) {
+    # Centrar respecto al eje X real (con tus límites)
+    x_center <- mean(c(1, 53))  # porque usas limits = c(1,53)
+    
+    yrng <- diff(range(base_grafica$consultas, na.rm = TRUE))
+    p <- p + ggplot2::annotate(
+      "text",
+      x = x_center,
+      y = meta_semanal + 0.02 * yrng,
+      label = meta_texto,
+      hjust = 0.5,
+      color = "#5A0F14",
+      fontface = "bold",
+      size = 4
+    )
+  }
+  
+  # 6) Escalas / tema
+  p <- p +
+    ggplot2::scale_x_continuous(
+      breaks = c(1, 10, 20, 30, 40, 52),
+      limits = c(1, 53),
+      expand = c(0, 0)
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = scales::comma,
+      expand = ggplot2::expansion(mult = c(0.22, 0.18))
+    ) +
+    ggplot2::scale_color_manual(
+      values = c("2024" = "#8E8E8E", "2025" = "#006657", "2026" = "#7A1F2B")
+    ) +
+    ggplot2::labs(
+      x = "Semana de consulta",
+      y = paste0("Número de ", tolower(procedimiento_sel))
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      panel.grid.major.y = ggplot2::element_line(color = "#D6E4EC", linewidth = 0.6),
+      panel.grid.major.x = ggplot2::element_line(color = "#D6E4EC", linewidth = 0.4),
+      legend.position = "none",
+      axis.title = ggplot2::element_text(face = "bold"),
+      axis.text  = ggplot2::element_text(color = "#264653"),
+      panel.background = ggplot2::element_rect(fill = NA, colour = NA),
+      plot.background  = ggplot2::element_rect(fill = NA, colour = NA),
+      legend.background = ggplot2::element_rect(fill = NA, colour = NA),
+      legend.box.background = ggplot2::element_rect(fill = NA, colour = NA),
+      plot.margin = ggplot2::margin(t = 18, r = 60, b = 30, l = 10)
+    ) +
+    ggplot2::coord_cartesian(clip = "off")
+  
+  # ---- Guardar ----
+  if (isTRUE(guardar_svg)) {
+    if (!requireNamespace("svglite", quietly = TRUE)) {
+      stop("No tienes instalado `svglite`. Instala con install.packages('svglite').")
+    }
+    ggplot2::ggsave(
+      filename = file_svg,
+      plot = p,
+      device = svglite::svglite,
+      width = width,
+      height = height,
+      bg = "transparent"
+    )
+  }
+  
+  list(plot = p, archivo_svg = file_svg, data = base_grafica)
+}
+
 grafica_incremento_anual_apilada_limpia <- function(
     df,
     col_x = "anio",
@@ -1769,9 +1967,11 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     titulo_acumulado = paste0(nombre_titulo, " del 01 de enero al ",
                               stringr::str_to_sentence(format(miercoles_mas_reciente, "%d de %B")),
                               " (2023-2026)"),
-    titulo_mes = paste0(nombre_titulo, " en ",
-                        stringr::str_to_sentence(format(miercoles_mas_reciente, "%B")),
-                        " (2023-2026)"),
+    titulo_mes = paste0("Predicción ", stringr::str_to_lower(nombre_titulo), " para ",
+                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B")),
+                        " 2026 y tendencia ",
+                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B")),
+                        " 2023-2025"),
     datos_acumulado = acumulado_totales_graf
   )
 }

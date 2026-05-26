@@ -65,88 +65,98 @@ df_2020_2023 <- arrow::read_parquet(
 con <- dbConnect(duckdb::duckdb())
 
 query_consultas_2024 <- "
-SELECT
-  clues,
-  CAST(fecha_consulta AS DATE) AS fecha,
-  CAST(fecha_insert AS DATE) AS fecha_insert,
+WITH base AS (
+  SELECT
+    clues,
+    CAST(fecha_consulta AS DATE) AS fecha,
+    CAST(fecha_insert AS DATE) AS fecha_insert,
+    curp_hash32,
+    LOWER(tipo_consulta) AS tipo_consulta
+  FROM read_parquet(
+    [
+      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2024_a_31_12_2024.parquet'
+    ],
+    union_by_name = true
+  )
+),
 
-  COUNT(*) AS consultas_totales,
+curps_por_clues AS (
+  SELECT
+    clues,
+    COUNT(DISTINCT curp_hash32) AS total_curps_distintas
+  FROM base
+  GROUP BY clues
+),
 
-  COUNT(DISTINCT curp_hash32) AS total_curps_distintas,
+resumen_diario AS (
+  SELECT
+    clues,
+    fecha,
+    fecha_insert,
 
-  SUM(
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('general', 'generales') THEN 1
-      ELSE 0
-    END
-  ) AS consultas_generales,
+    COUNT(*) AS consultas_totales,
 
-  COUNT(DISTINCT
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('general', 'generales') THEN curp_hash32
-      ELSE NULL
-    END
-  ) AS curps_distintas_generales,
+    SUM(
+      CASE 
+        WHEN tipo_consulta IN ('general', 'generales') THEN 1
+        ELSE 0
+      END
+    ) AS consultas_generales,
 
-  SUM(
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('especialidad', 'especialidades') THEN 1
-      ELSE 0
-    END
-  ) AS consultas_de_especialidad,
+    COUNT(DISTINCT
+      CASE 
+        WHEN tipo_consulta IN ('general', 'generales') THEN curp_hash32
+        ELSE NULL
+      END
+    ) AS curps_distintas_generales,
 
-  COUNT(DISTINCT
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('especialidad', 'especialidades') THEN curp_hash32
-      ELSE NULL
-    END
-  ) AS curps_distintas_especialidad
+    SUM(
+      CASE 
+        WHEN tipo_consulta IN ('especialidad', 'especialidades') THEN 1
+        ELSE 0
+      END
+    ) AS consultas_de_especialidad,
 
-FROM read_parquet(
-  [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2024_a_31_12_2024.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2024_a_31_12_2024.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2024_a_31_12_2024.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2024_a_31_12_2024.parquet'
-  ],
-  union_by_name = true
+    COUNT(DISTINCT
+      CASE 
+        WHEN tipo_consulta IN ('especialidad', 'especialidades') THEN curp_hash32
+        ELSE NULL
+      END
+    ) AS curps_distintas_especialidad
+
+  FROM base
+  GROUP BY
+    clues,
+    fecha,
+    fecha_insert
 )
 
-GROUP BY
-  clues,
-  CAST(fecha_consulta AS DATE),
-  CAST(fecha_insert AS DATE)
+SELECT
+  r.*,
+  c.total_curps_distintas
+FROM resumen_diario r
+LEFT JOIN curps_por_clues c
+  ON r.clues = c.clues
 "
+
 df_2024_consultas <- dbGetQuery(con, query_consultas_2024)
 
-query_pq_2024 <- "
-SELECT
-  clues,
+df_2024_pq <- arrow::read_parquet(
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2024 nuevo.parquet"
+) %>% 
+  mutate(
+    fecha_insert = as.Date(fecha_insert)) %>% 
+  group_by(clues, fecha = fecha_egreso,
+           fecha_insert) %>% 
+  summarise(procedimientos_quirurgicos = n(),
+            total_curps_distintas_pq = n_distinct(curp_hash32))
 
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y') AS fecha,
-
-  STRPTIME(fecha_insert, '%d/%m/%Y') AS fecha_insert,
-
-  COUNT(*) AS procedimientos_quirurgicos,
-  COUNT(DISTINCT curp_hash32) AS total_curps_distintas_pq
-
-FROM read_parquet(
-  [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/procedimientos_quirurgicos_01_01_2024_a_31_12_2024.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/procedimientos_quirurgicos_dentro_fuera_01_01_2024_a_31_12_2024.parquet'
-  ],
-  union_by_name = true
-)
-
-GROUP BY
-  clues,
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y'),
-  STRPTIME(fecha_insert, '%d/%m/%Y')
-"
-df_2024_pq <- dbGetQuery(con, query_pq_2024)
 
 df_2024_egresos <- arrow::read_parquet(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/egresos_01_01_2024_a_31_12_2024.parquet"
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2024 nuevo.parquet"
 ) %>% 
   mutate(
     fecha = as.Date(fecha_egreso),
@@ -218,45 +228,18 @@ GROUP BY
 "
 df_2025_consultas <- dbGetQuery(con, query_consultas_2025)
 
-query_pq_2025 <- "
-SELECT
-  clues,
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y') AS fecha,
-
-  CAST(
-    COALESCE(
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y %H:%M'),
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y'),
-      TRY_CAST(fecha_insert AS TIMESTAMP)
-    ) AS DATE
-  ) AS fecha_insert,
-
-  COUNT(*) AS procedimientos_quirurgicos,
-  COUNT(DISTINCT curp_hash32) AS total_curps_distintas_pq
-
-FROM read_parquet(
-  [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/procedimientos_quirurgicos_01_01_2025_a_31_12_2025.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/procedimientos_quirurgicos_dentro_quirofano_01_01_2025_a_31_12_2025.parquet'
-  ],
-  union_by_name = true
-)
-
-GROUP BY
-  clues,
-  STRPTIME(fecha_egreso_x, '%d/%m/%Y'),
-  CAST(
-    COALESCE(
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y %H:%M'),
-      TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%d/%m/%Y'),
-      TRY_CAST(fecha_insert AS TIMESTAMP)
-    ) AS DATE
-  )
-"
-df_2025_pq <- dbGetQuery(con, query_pq_2025)
+df_2025_pq <- arrow::read_parquet(
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2025 nuevo.parquet"
+  ) %>% 
+  mutate(
+    fecha_insert = as.Date(fecha_insert)) %>% 
+  group_by(clues, fecha = fecha_egreso,
+           fecha_insert) %>% 
+  summarise(procedimientos_quirurgicos = n(),
+            total_curps_distintas_pq = n_distinct(curp_hash32))
 
 df_2025_egresos <- arrow::read_parquet(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/egresos_01_01_2025_a_31_12_2025.parquet"
+"C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2025 nuevo.parquet"
 ) %>% 
   mutate(
     fecha = as.Date(fecha_egreso),
@@ -313,10 +296,10 @@ SELECT
 
 FROM read_parquet(
   [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/consulta_externa_01_01_2026_a_13_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/planificacion_familiar_01_01_2026_a_13_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_bucal_01_01_2026_a_13_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_mental_01_01_2026_a_13_05_2026.parquet'
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/consulta_externa_01_01_2026_a_20_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/planificacion_familiar_01_01_2026_a_20_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_bucal_01_01_2026_a_20_05_2026.parquet',
+    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_mental_01_01_2026_a_20_05_2026.parquet'
   ],
   union_by_name = true
 )
@@ -329,48 +312,18 @@ GROUP BY
 
 df_2026_consultas <- dbGetQuery(con, query_consultas_2026)
 
-query_pq_2026 <- "
-SELECT
-  clues,
-
-  CAST(
-    COALESCE(
-      TRY_STRPTIME(CAST(fecha_egreso_x AS VARCHAR), '%d/%m/%Y'),
-      TRY_STRPTIME(CAST(fecha_egreso_x AS VARCHAR), '%Y-%m-%d'),
-      TRY_CAST(fecha_egreso_x AS TIMESTAMP)
-    ) AS DATE
-  ) AS fecha,
-
-CAST(
-  COALESCE(
-    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%y/%m/%d %H:%M:%S'),
-    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%y/%m/%d %H:%M'),
-    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%Y-%m-%d %H:%M:%S'),
-    TRY_STRPTIME(CAST(fecha_insert AS VARCHAR), '%Y-%m-%d'),
-    TRY_CAST(fecha_insert AS TIMESTAMP)
-  ) AS DATE
-) AS fecha_insert,
-
-  COUNT(*) AS procedimientos_quirurgicos,
-  COUNT(DISTINCT curp_hash32) AS total_curps_distintas_pq
-
-FROM read_parquet(
-  [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_01_01_2026_a_13_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/procedimientos_quirurgicos_dentro_quirofano_01_01_2026_a_13_05_2026.parquet'
-  ],
-  union_by_name = true
-)
-
-GROUP BY
-  clues,
-  fecha,
-  fecha_insert
-"
-df_2026_pq <- dbGetQuery(con, query_pq_2026)
-
+df_2026_pq <- arrow::read_parquet(
+ "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2026 nuevo.parquet"
+ ) %>% 
+  mutate(
+    fecha_insert = as.Date(fecha_insert)) %>% 
+  group_by(clues, fecha = fecha_egreso,
+           fecha_insert) %>% 
+  summarise(procedimientos_quirurgicos = n(),
+            total_curps_distintas_pq = n_distinct(curp_hash32))
+  
 df_2026_egresos <- arrow::read_parquet(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/egresos_01_01_2026_a_13_05_2026.parquet"
+"C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2026 nuevo.parquet"
 ) %>% 
   mutate(
     fecha = as.Date(fecha_egreso),
@@ -392,6 +345,19 @@ df_final <- bind_rows(df_2020_2023, df_2024, df_2025,
   mutate(across(
     where(is.numeric),~ tidyr::replace_na(.x, 0))) %>% 
   filter(!is.na(fecha))
+
+df_final_curp <- arrow::read_parquet(
+  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/fecha_insert_al_corte_todos.parquet"
+) %>%
+  tidyr::pivot_wider(
+    names_from = tipo_procedimiento,
+    values_from = c(procedimientos, personas),
+    values_fill = 0
+  ) %>% 
+  filter(!is.na(anio_insert),
+         id== "NACIONAL") %>% 
+  janitor::clean_names() 
+
 # Estimaciones de modelo profet -------------------------------------------
 modelo_profet <- readxl::read_xlsx(
   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx") %>% 
@@ -615,7 +581,22 @@ datos_vb_reales <- df_final %>%
   filter(fecha <= fecha_corte_anio) %>% 
   group_by(anio) %>% 
   summarise(
-    across(where(is.numeric), ~ sum(.x, na.rm = TRUE)),
+    consultas_totales = sum(consultas_totales, na.rm = TRUE),
+    consultas_generales = sum(consultas_generales, na.rm = TRUE),
+    consultas_de_especialidad = sum(consultas_de_especialidad, na.rm = TRUE),
+    procedimientos_quirurgicos = sum(procedimientos_quirurgicos, na.rm = TRUE),
+    egresos = sum(egresos, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+datos_vb_reales_curp <- df_final_curp %>% 
+  group_by(anio = anio_insert) %>% 
+  summarise(
+    total_curps_distintas = sum(personas_consulta_total, na.rm = TRUE),
+    curps_distintas_generales = sum(personas_general, na.rm = TRUE),
+    curps_distintas_especialidad = sum(personas_especialidad, na.rm = TRUE),
+    total_curps_distintas_pq = sum(personas_qx, na.rm = TRUE),
+    total_curps_distintas_egresos = sum(personas_egresos, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -631,9 +612,11 @@ modelo_2026 <- modelo_profet %>%
 
 datos_vb <- datos_vb_reales %>% 
   filter(anio != 2026) %>% 
+  mutate(anio = as.character(anio)) %>% 
   bind_rows(
-    datos_vb_reales %>% 
+    datos_vb_reales_curp %>% 
       filter(anio == 2026) %>% 
+      mutate(anio = as.character(anio)) %>% 
       select(
         anio,
         total_curps_distintas,
@@ -642,7 +625,12 @@ datos_vb <- datos_vb_reales %>%
         total_curps_distintas_pq,
         total_curps_distintas_egresos
       ) %>% 
-      left_join(modelo_2026, by = "anio")) %>% 
+      left_join(
+        modelo_2026 %>% 
+          mutate(anio = as.character(anio)),
+        by = "anio"
+      )
+  ) %>% 
   arrange(anio)
 
 tasa_crecimiento <- function(valor_2026, valor_ref) {
@@ -1193,7 +1181,8 @@ tabla_pq <- df_final %>%
 tabla_3 <- tabla_pq %>% 
   filter(Avance == 0)
 
-n_por_slide_1 <- ceiling(nrow(tabla_final) / 2)
+n_por_slide_1 <- 10
+n_por_slide_2 <- 7
 
 tabla_3_1 <- dplyr::slice(tabla_3, 1:n_por_slide_1)
 tabla_3_2 <- dplyr::slice(tabla_3, (n_por_slide_1 + 1):dplyr::n())
@@ -1920,6 +1909,8 @@ pptx <- pptx %>%
     value = valuebox_8,
     location = ph_location_label("value"))
 
-print(pptx, target = 
-        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026 (semana 19).pptx")
+print(pptx, target = paste0(
+        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026",
+        " (semana ",
+        num_semana,")",".pptx"))
 
