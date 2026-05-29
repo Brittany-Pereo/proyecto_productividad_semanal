@@ -11,7 +11,6 @@ hoy <- Sys.Date()
 # miércoles = 4 en lubridate
 dias_desde_miercoles <- (lubridate::wday(hoy) - 4) %% 7
 fecha_corte <- hoy - dias_desde_miercoles
-
 # -------------------------------------------------------------------------
 #Bases
 # -------------------------------------------------------------------------
@@ -256,83 +255,43 @@ df_2025 <- full_join(df_2025_consultas, df_2025_pq,
                      by = c("clues", "fecha", "fecha_insert")) %>% 
   full_join(df_2025_egresos, by = c("clues", "fecha", "fecha_insert"))
 # Productividad 2026 ------------------------------------------------------
-query_consultas_2026 <- "
-SELECT
-  clues,
-  CAST(fecha_consulta AS DATE) AS fecha,
-  CAST(fecha_insert AS DATE) AS fecha_insert,
-
-  COUNT(*) AS consultas_totales,
-
-  COUNT(DISTINCT curp_hash32) AS total_curps_distintas,
-
-  SUM(
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('general', 'generales') THEN 1
-      ELSE 0
-    END
-  ) AS consultas_generales,
-
-  COUNT(DISTINCT
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('general', 'generales') THEN curp_hash32
-      ELSE NULL
-    END
-  ) AS curps_distintas_generales,
-
-  SUM(
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('especialidad', 'especialidades') THEN 1
-      ELSE 0
-    END
-  ) AS consultas_de_especialidad,
-
-  COUNT(DISTINCT
-    CASE 
-      WHEN LOWER(tipo_consulta) IN ('especialidad', 'especialidades') THEN curp_hash32
-      ELSE NULL
-    END
-  ) AS curps_distintas_especialidad
-
-FROM read_parquet(
-  [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/consulta_externa_01_01_2026_a_20_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/planificacion_familiar_01_01_2026_a_20_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_bucal_01_01_2026_a_20_05_2026.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/2026_daniel/salud_mental_01_01_2026_a_20_05_2026.parquet'
-  ],
-  union_by_name = true
-)
-
-GROUP BY
-  clues,
-  CAST(fecha_consulta AS DATE),
-  CAST(fecha_insert AS DATE)
-"
-
-df_2026_consultas <- dbGetQuery(con, query_consultas_2026)
+df_2026_consultas <- arrow::read_parquet(
+ "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/consultas_con_ECE_2026.parquet"
+) %>% 
+  mutate(
+    fecha_insert = as.Date(fecha_insert)) %>% 
+  group_by(clues, fecha = fecha_consulta,
+           fecha_insert, tipo_consulta) %>%
+  summarise(num_con = n(), .groups = "drop") %>% 
+  tidyr::pivot_wider(names_from = tipo_consulta,
+                     values_from = num_con,
+                     values_fill = 0) %>% 
+  group_by(clues, fecha, fecha_insert) %>% 
+  summarise(consultas_totales = sum(general, especialidad),
+            consultas_generales = sum(general),
+            consultas_de_especialidad = sum(especialidad))
 
 df_2026_pq <- arrow::read_parquet(
- "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2026 nuevo.parquet"
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/proc_qx_con_ECE_2026.parquet"
  ) %>% 
   mutate(
     fecha_insert = as.Date(fecha_insert)) %>% 
+  filter(fecha_insert <= as.Date("2026-05-27")) %>% 
   group_by(clues, fecha = fecha_egreso,
            fecha_insert) %>% 
-  summarise(procedimientos_quirurgicos = n(),
-            total_curps_distintas_pq = n_distinct(curp_hash32))
+  summarise(procedimientos_quirurgicos = n())
   
 df_2026_egresos <- arrow::read_parquet(
-"C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2026 nuevo.parquet"
+"C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/egresos_con_ECE_2026.parquet"
 ) %>% 
   mutate(
     fecha = as.Date(fecha_egreso),
     fecha_insert = as.Date(fecha_insert)
   ) %>% 
+  filter(fecha_insert <= as.Date("2026-05-27")) %>% 
   group_by(clues, fecha, fecha_insert) %>% 
   summarise(
     egresos = n(), 
-    total_curps_distintas_egresos = n_distinct(curp_hash32, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -340,8 +299,8 @@ df_2026 <- full_join(df_2026_consultas, df_2026_pq,
                      by = c("clues", "fecha", "fecha_insert")) %>% 
   full_join(df_2026_egresos, by = c("clues", "fecha", "fecha_insert"))
 # BASES JUNTAS ------------------------------------------------------------
-df_final <- bind_rows(df_2020_2023, df_2024, df_2025,
-                      df_2026) %>% 
+df_final <- bind_rows(df_2020_2023, df_2024, df_2025, df_2026
+                      ) %>% 
   mutate(across(
     where(is.numeric),~ tidyr::replace_na(.x, 0))) %>% 
   filter(!is.na(fecha))
@@ -414,21 +373,21 @@ modelo_profet_entidad <- readxl::read_xlsx(
     "Iniems", "Guanajuato",
     "Yucatán", "Yucatan"))
 
-modelo_profet_completo <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
-  ) %>% 
-  transmute(fecha = as.Date(dia), tipo_consulta,
-            observadas, nowcast, entidad) %>% 
-  filter(fecha >= "2026-01-01") %>% 
-  tidyr::pivot_wider(names_from = tipo_consulta,
-                     values_from = observadas,
-                     values_fill = 0) %>% 
-  group_by(fecha) %>% 
-  summarise(consultas_totales = sum(general, especialidad),
-            consultas_generales = sum(general),
-            consultas_de_especialidad = sum(especialidad),
-            procedimientos_quirurgicos = sum(qx),
-            egresos = sum(egresos)) 
+# modelo_profet_completo <- readxl::read_xlsx(
+#   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+#   ) %>% 
+#   transmute(fecha = as.Date(dia), tipo_consulta,
+#             observadas, nowcast, entidad) %>% 
+#   filter(fecha >= "2026-01-01") %>% 
+#   tidyr::pivot_wider(names_from = tipo_consulta,
+#                      values_from = observadas,
+#                      values_fill = 0) %>% 
+#   group_by(fecha) %>% 
+#   summarise(consultas_totales = sum(general, especialidad),
+#             consultas_generales = sum(general),
+#             consultas_de_especialidad = sum(especialidad),
+#             procedimientos_quirurgicos = sum(qx),
+#             egresos = sum(egresos)) 
 
 modelo_profet_completo_nowcast <- readxl::read_xlsx(
   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
@@ -565,8 +524,6 @@ estilo_guinda <- c(list(color_fondo = "#B91C1C", color_borde = "#B91C1C"), estil
 
 nombres_meses <- c("enero", "febrero", "marzo", "abril", "mayo", "junio",
                    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
-
-
 # -------------------------------------------------------------------------
 # GRAFICAS 
 # -------------------------------------------------------------------------
@@ -1209,8 +1166,6 @@ avance_entidad <- df_final %>%
   filter(
     anio %in% c(2024, 2025, 2026),
     anio_insert == anio,
-    !is.na(fecha_insert),
-    !is.na(fecha),
     fecha_insert <= fecha_corte_insert
   ) %>% 
   left_join(
@@ -1271,10 +1226,12 @@ data_egresos <- limpiar_data_avance_2(
 )
 
 datos_vb_retraso <- df_final %>% 
+  filter(
+    !is.na(fecha_insert)
+  ) %>% 
   mutate(
     anio = lubridate::year(fecha),
     anio_insert = lubridate::year(fecha),
-    semana = lubridate::isoweek(fecha),
     fecha_corte_insert_txt = case_when(
       !is.na(anio_insert) ~ paste0(anio_insert, "-", format(fecha_corte, "%m-%d")),
       TRUE ~ NA_character_
@@ -1283,11 +1240,11 @@ datos_vb_retraso <- df_final %>%
   ) %>% 
   filter(
     anio %in% c(2024, 2025, 2026),
-    !is.na(fecha_insert),
     !is.na(fecha_corte_insert),
     anio_insert == anio,
     fecha_insert <= fecha_corte_insert
   ) %>% 
+  mutate(semana = lubridate::isoweek(fecha)) %>% 
   group_by(anio, semana) %>% 
   summarise(
     consultas_totales = sum(consultas_totales, na.rm = TRUE),
@@ -1349,9 +1306,6 @@ datos_vb_insert <- df_final %>%
   ) %>% 
   filter(
     anio %in% c(2024, 2025, 2026),
-    !is.na(fecha_insert),
-    !is.na(fecha),
-    semana_insert <= num_semana
   ) %>% 
   group_by(anio) %>% 
   summarise(
@@ -1912,5 +1866,5 @@ pptx <- pptx %>%
 print(pptx, target = paste0(
         "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026",
         " (semana ",
-        num_semana,")",".pptx"))
+        # num_semana,")",".pptx"))
 
