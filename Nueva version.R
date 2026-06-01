@@ -373,22 +373,6 @@ modelo_profet_entidad <- readxl::read_xlsx(
     "Iniems", "Guanajuato",
     "Yucatán", "Yucatan"))
 
-# modelo_profet_completo <- readxl::read_xlsx(
-#   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
-#   ) %>% 
-#   transmute(fecha = as.Date(dia), tipo_consulta,
-#             observadas, nowcast, entidad) %>% 
-#   filter(fecha >= "2026-01-01") %>% 
-#   tidyr::pivot_wider(names_from = tipo_consulta,
-#                      values_from = observadas,
-#                      values_fill = 0) %>% 
-#   group_by(fecha) %>% 
-#   summarise(consultas_totales = sum(general, especialidad),
-#             consultas_generales = sum(general),
-#             consultas_de_especialidad = sum(especialidad),
-#             procedimientos_quirurgicos = sum(qx),
-#             egresos = sum(egresos)) 
-
 modelo_profet_completo_nowcast <- readxl::read_xlsx(
   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
 ) %>% 
