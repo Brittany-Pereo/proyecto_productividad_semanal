@@ -626,35 +626,36 @@ ft_base_ajustada <- function(df, W_PH, H_PH,
   }
   
   # Solo colorear avance_global
+  # Solo colorear avance_global
   if ("avance_global" %in% names(df)) {
     ft <- ft %>%
       flextable::bg(
-        i = ~ avance_global < pct_al_dia * 0.50,
+        i = ~ avance_global < pct_al_dia * 0.60,
         j = "avance_global",
         bg = "#F34949"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia * 0.75,
+        i = ~ avance_global >= pct_al_dia * 0.60 & avance_global < pct_al_dia * 0.80,
         j = "avance_global",
         bg = "#F5DD61"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.75 & avance_global < pct_al_dia,
+        i = ~ avance_global >= pct_al_dia * 0.80 & avance_global < pct_al_dia * 0.95,
         j = "avance_global",
         bg = "#A9D18E"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia,
+        i = ~ avance_global >= pct_al_dia * 0.95,
         j = "avance_global",
         bg = "#006657"
       ) %>%
       flextable::color(
-        i = ~ avance_global < pct_al_dia * 0.50 | avance_global >= pct_al_dia,
+        i = ~ avance_global < pct_al_dia * 0.60 | avance_global >= pct_al_dia * 0.95,
         j = "avance_global",
         color = "white"
       ) %>%
       flextable::color(
-        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia,
+        i = ~ avance_global >= pct_al_dia * 0.60 & avance_global < pct_al_dia * 0.95,
         j = "avance_global",
         color = "black"
       )
@@ -678,6 +679,7 @@ ft_base_ajustada <- function(df, W_PH, H_PH,
   
   return(ft)
 }
+
 ft_estilo_menor <- function(x){
   ft <- if (inherits(x, "flextable")) x else flextable::flextable(as.data.frame(x))
   
@@ -1015,10 +1017,9 @@ grafica_avance_entidades <- function(
     alpha_dorado = 0.85
 ) {
   
-  q1 <- meta_linea * 0.5
-  q2 <- meta_linea * 0.625
-  q4 <- meta_linea
-  
+  q1 <- meta_linea * 0.60   # 50%
+  q2 <- meta_linea * 0.80   # 75%
+  q3 <- meta_linea * 0.95   # 100%
   df_plot <- df %>%
     dplyr::mutate(
       pct_avance = pmax(0, pmin(.data[[col_pct]], 1)),
@@ -1028,7 +1029,7 @@ grafica_avance_entidades <- function(
       color = dplyr::case_when(
         pct_modelo < q1 ~ "rojo",
         pct_modelo < q2 ~ "amarillo",
-        pct_modelo < q4 ~ "verde_claro",
+        pct_modelo < q3 ~ "verde_claro",
         TRUE            ~ "verde_fuerte"
       ),
       color_pct_txt = dplyr::if_else(
