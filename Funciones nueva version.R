@@ -626,36 +626,35 @@ ft_base_ajustada <- function(df, W_PH, H_PH,
   }
   
   # Solo colorear avance_global
-  # Solo colorear avance_global
   if ("avance_global" %in% names(df)) {
     ft <- ft %>%
       flextable::bg(
-        i = ~ avance_global < pct_al_dia * 0.60,
+        i = ~ avance_global < pct_al_dia * 0.50,
         j = "avance_global",
         bg = "#F34949"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.60 & avance_global < pct_al_dia * 0.80,
+        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia * 0.75,
         j = "avance_global",
         bg = "#F5DD61"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.80 & avance_global < pct_al_dia * 0.95,
+        i = ~ avance_global >= pct_al_dia * 0.75 & avance_global < pct_al_dia,
         j = "avance_global",
         bg = "#A9D18E"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.95,
+        i = ~ avance_global >= pct_al_dia,
         j = "avance_global",
         bg = "#006657"
       ) %>%
       flextable::color(
-        i = ~ avance_global < pct_al_dia * 0.60 | avance_global >= pct_al_dia * 0.95,
+        i = ~ avance_global < pct_al_dia * 0.50 | avance_global >= pct_al_dia,
         j = "avance_global",
         color = "white"
       ) %>%
       flextable::color(
-        i = ~ avance_global >= pct_al_dia * 0.60 & avance_global < pct_al_dia * 0.95,
+        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia,
         j = "avance_global",
         color = "black"
       )
@@ -679,7 +678,6 @@ ft_base_ajustada <- function(df, W_PH, H_PH,
   
   return(ft)
 }
-
 ft_estilo_menor <- function(x){
   ft <- if (inherits(x, "flextable")) x else flextable::flextable(as.data.frame(x))
   
@@ -812,196 +810,6 @@ grafica_avance_entidades <- function(
     breaks_by = 0.25,
     extra_derecha = 0.1,
     verde_fuerte = "#14532D",
-    dorado_imb = "#A57F2C",
-    gris_fondo = "#FFFFFF",
-    color_meta = "#8B1E3F",
-    size_pct   = 5.2,
-    size_meta  = 4.6,
-    size_ejes  = 13,
-    size_meta_txt = 5,
-    umbral_pct_fuera = 0.001,
-    meta_x_nudge = 0.01,
-    meta_y_nudge = 1.1,
-    alpha_dorado = 0.45
-) {
-  
-  df_plot <- df %>%
-    dplyr::mutate(
-      
-      pct_avance = pmax(0, pmin(.data[[col_pct]], 1)),
-      pct_modelo = pmax(0, pmin(.data[[col_pct_2]], 1)),
-      
-      pct_modelo = pmax(pct_modelo, pct_avance),
-      
-      etiqueta_pct  = scales::percent(pct_avance, accuracy = 1),
-      
-      etiqueta_meta = paste0(
-        "(",
-        fmt_si(avance_total),
-        "/",
-        fmt_si(meta_total),
-        ")"
-      ),
-      
-      x_pct = dplyr::if_else(
-        pct_avance <= umbral_pct_fuera,
-        pmax(0.012, pct_avance + 0.006),
-        pct_avance + 0.006
-      ),
-      
-      hjust_pct = 0,
-      
-      x_ratio = x_max + 0.01
-    ) %>%
-    dplyr::arrange(desc(pct_modelo)) %>%
-    dplyr::mutate(
-      entidad = factor(entidad, levels = rev(entidad))
-    )
-  
-  n_ent <- length(levels(df_plot$entidad))
-  
-  ggplot2::ggplot(
-    df_plot,
-    ggplot2::aes(y = entidad)
-  ) +
-    
-    # fondo
-    ggplot2::geom_col(
-      ggplot2::aes(x = x_max),
-      fill = gris_fondo,
-      width = 0.78
-    ) +
-    
-    # modelo completo
-    ggplot2::geom_col(
-      ggplot2::aes(x = pct_modelo),
-      fill = dorado_imb,
-      alpha = alpha_dorado,
-      width = 0.78
-    ) +
-    
-    # avance observado
-    ggplot2::geom_col(
-      ggplot2::aes(x = pct_avance),
-      fill = verde_fuerte,
-      width = 0.78
-    ) +
-    
-    # linea meta
-    ggplot2::geom_vline(
-      xintercept = meta_linea,
-      linetype = "dashed",
-      linewidth = 1,
-      color = color_meta
-    ) +
-    
-    # etiqueta meta
-    ggplot2::annotate(
-      "label",
-      x = meta_linea + meta_x_nudge,
-      y = n_ent + meta_y_nudge,
-      label = paste0(
-        "Meta actual: ",
-        scales::percent(meta_linea, accuracy = 1)
-      ),
-      color = color_meta,
-      fontface = "bold",
-      size = size_meta_txt,
-      hjust = 0,
-      label.size = NA,
-      fill = "white"
-    ) +
-    
-    # porcentaje en la orilla
-    ggplot2::geom_text(
-      ggplot2::aes(
-        x = x_pct,
-        label = etiqueta_pct
-      ),
-      hjust = 0,
-      fontface = "bold",
-      size = size_pct,
-      color = "black"
-    ) +
-    
-    # avance/meta
-    ggplot2::geom_text(
-      ggplot2::aes(
-        x = x_ratio,
-        label = etiqueta_meta
-      ),
-      hjust = 0,
-      size = size_meta,
-      color = "black"
-    ) +
-    
-    ggplot2::scale_x_continuous(
-      limits = c(0, x_max + extra_derecha),
-      breaks = seq(0, x_max, by = breaks_by),
-      labels = scales::percent_format(accuracy = 1),
-      expand = c(0, 0)
-    ) +
-    
-    ggplot2::scale_y_discrete(
-      expand = ggplot2::expansion(mult = c(0.02, 0.16))
-    ) +
-    
-    ggplot2::coord_cartesian(clip = "off") +
-    
-    ggplot2::labs(
-      x = NULL,
-      y = NULL
-    ) +
-    
-    ggplot2::theme_minimal(base_size = size_ejes) +
-    
-    ggplot2::theme(
-      axis.text.y = ggplot2::element_text(
-        size = size_ejes,
-        face = "bold"
-      ),
-      
-      axis.text.x = ggplot2::element_text(
-        size = size_ejes
-      ),
-      
-      panel.grid.major.y = ggplot2::element_blank(),
-      panel.grid.minor = ggplot2::element_blank(),
-      panel.grid.major.x = ggplot2::element_blank(),
-      
-      panel.background = ggplot2::element_rect(
-        fill = NA,
-        colour = NA
-      ),
-      
-      plot.background = ggplot2::element_rect(
-        fill = NA,
-        colour = NA
-      ),
-      
-      legend.background = ggplot2::element_rect(
-        fill = NA,
-        colour = NA
-      ),
-      
-      legend.box.background = ggplot2::element_rect(
-        fill = NA,
-        colour = NA
-      ),
-      
-      panel.border = ggplot2::element_blank()
-    )
-}
-
-grafica_avance_entidades <- function(
-    df,
-    col_pct = "pct_avance_entidad",
-    col_pct_2 = "pct_modelo_entidad",
-    meta_linea = meta_hoy,
-    x_max = 0.25,
-    breaks_by = 0.25,
-    extra_derecha = 0.1,
-    verde_fuerte = "#14532D",
     verde_claro  = "#87A922",
     amarillo = "#F5DD61",
     rojo     = "#B91C1C",
@@ -1017,9 +825,10 @@ grafica_avance_entidades <- function(
     alpha_dorado = 0.85
 ) {
   
-  q1 <- meta_linea * 0.60   # 50%
-  q2 <- meta_linea * 0.80   # 75%
-  q3 <- meta_linea * 0.95   # 100%
+  q1 <- meta_linea * 0.5
+  q2 <- meta_linea * 0.625
+  q4 <- meta_linea
+  
   df_plot <- df %>%
     dplyr::mutate(
       pct_avance = pmax(0, pmin(.data[[col_pct]], 1)),
@@ -1029,7 +838,7 @@ grafica_avance_entidades <- function(
       color = dplyr::case_when(
         pct_modelo < q1 ~ "rojo",
         pct_modelo < q2 ~ "amarillo",
-        pct_modelo < q3 ~ "verde_claro",
+        pct_modelo < q4 ~ "verde_claro",
         TRUE            ~ "verde_fuerte"
       ),
       color_pct_txt = dplyr::if_else(
@@ -1121,7 +930,7 @@ grafica_avance_entidades <- function(
     ) +
     
     ggplot2::scale_color_identity() +
-
+    
     ggplot2::geom_text(
       ggplot2::aes(x = x_ratio, label = etiqueta_meta),
       hjust = 0,
@@ -1153,6 +962,7 @@ grafica_avance_entidades <- function(
       panel.border = ggplot2::element_blank()
     )
 }
+
 
 grafica_semanal_procedimiento <- function(
     bases_todas,
@@ -1660,7 +1470,7 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     dplyr::pull(total_graf)
   
   pct_incremento_acum <- round(
-    ((valor_2026_acum / valor_2025_acum) - 1) * 100
+    ((valor_2026_acum - valor_2025_acum) / valor_2026_acum) * 100
   )
   
   y_flecha_acum <- max(acumulado_totales_graf$total_graf, na.rm = TRUE) * 1.08
@@ -1968,11 +1778,11 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     titulo_acumulado = paste0(nombre_titulo, " del 01 de enero al ",
                               stringr::str_to_sentence(format(miercoles_mas_reciente, "%d de %B")),
                               " (2023-2026)"),
-    titulo_mes = paste0("Predicción ", stringr::str_to_lower(nombre_titulo), " para ",
-                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B")),
-                        " 2026 y tendencia ",
-                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B")),
-                        " 2023-2025"),
+    titulo_mes = paste0("Proyección de ",stringr::str_to_lower(nombre_titulo), " para ",
+                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B %Y")), " y tendencia ",
+                        stringr::str_to_lower(format(miercoles_mas_reciente, "%B")), 
+                        " (2023-2025)"),
     datos_acumulado = acumulado_totales_graf
   )
 }
+
