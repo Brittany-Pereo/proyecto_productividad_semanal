@@ -590,9 +590,6 @@ col_borde_suave  <- "#CBD5E1"
 col_barra_gris   <- "#374151"
 col_dorado       <- "#a57f2c"
 
-estilo_verde  <- c(list(color_fondo = "#15803D", color_borde = "#15803D"), estilo_valuebox)
-estilo_guinda <- c(list(color_fondo = "#B91C1C", color_borde = "#B91C1C"), estilo_valuebox)
-
 estilo_valuebox <- list(
   transparencia= 90,
   ancho_borde= 12700,
@@ -609,9 +606,11 @@ estilo_valuebox <- list(
   italica_valor = FALSE,
   italica_subtitulo = TRUE)
 
+estilo_verde  <- c(list(color_fondo = "#15803D", color_borde = "#15803D"), estilo_valuebox)
+estilo_guinda <- c(list(color_fondo = "#B91C1C", color_borde = "#B91C1C"), estilo_valuebox)
+
 nombres_meses <- c("enero", "febrero", "marzo", "abril", "mayo", "junio",
                    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
-
 
 # -------------------------------------------------------------------------
 # GRAFICAS 
@@ -1391,7 +1390,8 @@ datos_vb_avance <- df_final %>%
     anio = lubridate::year(fecha),
     fecha_corte_anio = lubridate::ymd(
       paste0(anio, "-", format(fecha_corte, "%m-%d"))
-    )
+    ),
+    al_corte = fecha <= fecha_corte_anio
   ) %>% 
   filter(
     anio %in% c(2024, 2025, 2026),
@@ -1400,61 +1400,46 @@ datos_vb_avance <- df_final %>%
   ) %>% 
   group_by(anio) %>% 
   summarise(
-    consultas_totales = sum(consultas_totales, na.rm = TRUE),
-    consultas_generales = sum(consultas_generales, na.rm = TRUE),
-    consultas_de_especialidad = sum(consultas_de_especialidad, na.rm = TRUE),
-    procedimientos_quirurgicos = sum(procedimientos_quirurgicos, na.rm = TRUE),
-    egresos = sum(egresos, na.rm = TRUE),
+    total_consultas_totales = sum(consultas_totales, na.rm = TRUE),
+    total_consultas_generales = sum(consultas_generales, na.rm = TRUE),
+    total_consultas_de_especialidad = sum(consultas_de_especialidad, na.rm = TRUE),
+    total_procedimientos_quirurgicos = sum(procedimientos_quirurgicos, na.rm = TRUE),
+    total_egresos = sum(egresos, na.rm = TRUE),
     
-    avance_consultas_totales = sum(
-      consultas_totales[fecha <= fecha_corte_anio],
-      na.rm = TRUE
-    ),
-    avance_consultas_generales = sum(
-      consultas_generales[fecha <= fecha_corte_anio],
-      na.rm = TRUE
-    ),
-    avance_consultas_de_especialidad = sum(
-      consultas_de_especialidad[fecha <= fecha_corte_anio],
-      na.rm = TRUE
-    ),
-    avance_procedimientos_quirurgicos = sum(
-      procedimientos_quirurgicos[fecha <= fecha_corte_anio],
-      na.rm = TRUE
-    ),
-    avance_egresos = sum(
-      egresos[fecha <= fecha_corte_anio],
-      na.rm = TRUE
-    ),
+    avance_consultas_totales = sum(consultas_totales[al_corte], na.rm = TRUE),
+    avance_consultas_generales = sum(consultas_generales[al_corte], na.rm = TRUE),
+    avance_consultas_de_especialidad = sum(consultas_de_especialidad[al_corte], na.rm = TRUE),
+    avance_procedimientos_quirurgicos = sum(procedimientos_quirurgicos[al_corte], na.rm = TRUE),
+    avance_egresos = sum(egresos[al_corte], na.rm = TRUE),
     .groups = "drop"
   ) %>% 
   mutate(
-    pct_avance_consultas_totales = avance_consultas_totales / consultas_totales,
-    pct_avance_consultas_generales = avance_consultas_generales / consultas_generales,
-    pct_avance_consultas_de_especialidad = avance_consultas_de_especialidad / consultas_de_especialidad,
-    pct_avance_procedimientos_quirurgicos = avance_procedimientos_quirurgicos / procedimientos_quirurgicos,
-    pct_avance_egresos = avance_egresos / egresos
+    pct_avance_consultas_totales = avance_consultas_totales / total_consultas_totales,
+    pct_avance_consultas_generales = avance_consultas_generales / total_consultas_generales,
+    pct_avance_consultas_de_especialidad = avance_consultas_de_especialidad / total_consultas_de_especialidad,
+    pct_avance_procedimientos_quirurgicos = avance_procedimientos_quirurgicos / total_procedimientos_quirurgicos,
+    pct_avance_egresos = avance_egresos / total_egresos
   )
 
-avance_2024_t_insert <- grafica_semanal_tot_rez$consultas %>% filter(semana ==num_semana, anio == 2024) %>% pull(valor_fecha_insert)
+avance_2024_t_insert <- graficas_totales$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert)
 avance_2025_t_insert <- graficas_totales$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert)
 avance_2026_t_insert <- graficas_totales$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert)
 
-p_2024_g_insert <- graficas_generales$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert))
-p_2025_g_insert <- scales::comma(graficas_generales$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert))
-p_2026_g_insert <- scales::comma(graficas_generales$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert))
+p_2024_g_insert <- graficas_generales$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert)
+p_2025_g_insert <- graficas_generales$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert)
+p_2026_g_insert <- graficas_generales$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert)
 
-p_2024_e_insert <- scales::comma(graficas_especialidad$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert))
-p_2025_e_insert <- scales::comma(graficas_especialidad$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert))
-p_2026_e_insert <- scales::comma(graficas_especialidad$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert))
+p_2024_e_insert <- graficas_especialidad$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert)
+p_2025_e_insert <- graficas_especialidad$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert)
+p_2026_e_insert <- graficas_especialidad$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert)
 
-p_2024_pq_insert <- scales::comma(graficas_pq $datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert))
-p_2025_pq_insert <- scales::comma(graficas_pq$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert))
-p_2026_pq_insert <- scales::comma(graficas_pq$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert))
+p_2024_pq_insert <- graficas_pq $datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert)
+p_2025_pq_insert <- graficas_pq$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert)
+p_2026_pq_insert <- graficas_pq$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert)
 
-egreso_2024_insert <- scales::comma(graficas_egresos$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert))
-egreso_2025_insert <- scales::comma(graficas_egresos$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert))
-egreso_2026_insert <- scales::comma(graficas_egresos$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert))
+egreso_2024_insert <- graficas_egresos$datos_acumulado %>% filter(anio == 2024) %>% pull(valor_fecha_insert)
+egreso_2025_insert <- graficas_egresos$datos_acumulado %>% filter(anio == 2025) %>% pull(valor_fecha_insert)
+egreso_2026_insert <- graficas_egresos$datos_acumulado %>% filter(anio == 2026) %>% pull(valor_fecha_insert)
 
 datos_variacion_retraso <- datos_vb_avance %>% 
   summarise(
@@ -1830,12 +1815,12 @@ pptx <- pptx %>%
     ft_resumen_avance(
       ancho_tabla = 3.0,
       alto_columna = 0.32,
-      avance_2024 = avance_2024_t_insert,
-      avance_2025 = avance_2025_t_insert,
-      avance_2026 = avance_2026_t_insert,
-      pct_2024 = percent(avance_2024_t_insert / productividad_cg_2024),
-      pct_2025 = percent(avance_2025_t_insert/ productividad_cg_2025),
-      pct_2026 = percent(avance_2026_t_insert / productividad_cg_2026)
+      avance_2024 = scales::comma(avance_2024_t_insert),
+      avance_2025 = scales::comma(avance_2025_t_insert),
+      avance_2026 = scales::comma(avance_2026_t_insert),
+      pct_2024 = scales::percent(avance_2024_t_insert / productividad_cg_2024),
+      pct_2025 = scales::percent(avance_2025_t_insert/ productividad_cg_2025),
+      pct_2026 = scales::percent(avance_2026_t_insert / productividad_cg_2026)
       ),
     location = ph_location_label("tabla_1")) %>%
   ph_with(value = rvg::dml(ggobj = grafica_semanal_tot_rez$plot),
