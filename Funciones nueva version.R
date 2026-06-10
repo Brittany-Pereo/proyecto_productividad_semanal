@@ -825,8 +825,9 @@ grafica_avance_entidades <- function(
     alpha_dorado = 0.85
 ) {
   
-  q1 <- meta_linea * 0.5
-  q2 <- meta_linea * 0.625
+  q1 <- meta_linea * 0.6
+  q2 <- meta_linea * 0.8
+  q3 <- meta_linea * 0.95
   q4 <- meta_linea
   
   df_plot <- df %>%
@@ -838,7 +839,7 @@ grafica_avance_entidades <- function(
       color = dplyr::case_when(
         pct_modelo < q1 ~ "rojo",
         pct_modelo < q2 ~ "amarillo",
-        pct_modelo < q4 ~ "verde_claro",
+        pct_modelo < q3 ~ "verde_claro",
         TRUE            ~ "verde_fuerte"
       ),
       color_pct_txt = dplyr::if_else(
