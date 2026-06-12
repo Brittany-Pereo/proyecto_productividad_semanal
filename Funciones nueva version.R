@@ -824,10 +824,9 @@ grafica_avance_entidades <- function(
     meta_y_nudge = 1.1,
     alpha_dorado = 0.85
 ) {
-  
-  q1 <- meta_linea * 0.5
-  q2 <- meta_linea * 0.625
-  q4 <- meta_linea
+  q1 <- meta_linea * 0.60   # 60%
+  q2 <- meta_linea * 0.80   # 80%
+  q3 <- meta_linea * 0.95   # 95%
   
   df_plot <- df %>%
     dplyr::mutate(
@@ -838,7 +837,7 @@ grafica_avance_entidades <- function(
       color = dplyr::case_when(
         pct_modelo < q1 ~ "rojo",
         pct_modelo < q2 ~ "amarillo",
-        pct_modelo < q4 ~ "verde_claro",
+        pct_modelo < q3 ~ "verde_claro",
         TRUE            ~ "verde_fuerte"
       ),
       color_pct_txt = dplyr::if_else(
@@ -1210,7 +1209,7 @@ grafica_incremento_anual_apilada_limpia <- function(
   
   v1 <- df$total[idx_base]
   v2 <- df$total[idx_comp]
-  pct <- round((v2 / v1 - 1) * 100)
+  pct <- round(((v2 - v1 )/ V2) * 100)
   
   y_max <- max(df$total, na.rm = TRUE) * 1.22
   offset_total <- max(df$total, na.rm = TRUE) * offset_total_mult
@@ -1681,11 +1680,11 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
     dplyr::pull(total_graf)
   
   pct_incremento_mes <- round(
-    ((valor_2026 / valor_2025) - 1) * 100
+    ((valor_2026 - valor_2025)/ valor_2026) * 100
   )
   
   y_flecha_mes <- max(mes_graf$total_graf, na.rm = TRUE) * 1.08
-  
+
   # -----------------------------------------------------------------------
   # GRÁFICA MES
   # -----------------------------------------------------------------------

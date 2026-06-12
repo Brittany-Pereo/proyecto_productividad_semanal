@@ -18,8 +18,7 @@ fecha_corte <- hoy - dplyr::if_else(
 # -------------------------------------------------------------------------
 # Catalogos ---------------------------------------------------------------
 catalogos_clues <- arrow::read_parquet(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/CLUES/clues.parquet"
-) %>% 
+  "C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/CLUES/clues.parquet") %>% 
   mutate(entidad = case_when(
     entidad == "MICHOACAN DE OCAMPO" ~ "Michoacan",
     entidad == "VERACRUZ DE IGNACIO DE LA LLAVE" ~ "Veracruz",
@@ -29,7 +28,7 @@ catalogos_clues <- arrow::read_parquet(
   filter(!entidad %in% c("Yucatán", "Guanajuato"))
 
 catalogo_metas <-  readxl::read_xlsx(
-  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Metas/2026/Metas de productividad por unidad medica 2026.xlsx"
+"C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Metas/2026/Metas de productividad por unidad medica 2026.xlsx"
 )%>% 
   mutate(entidad = case_when(
     entidad == "MICHOACAN DE OCAMPO" ~ "Michoacan",
@@ -68,7 +67,7 @@ SELECT
   c.egresos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Productividad - Cubos/Productividad de Cubos 2020-2024/Cubos_completos_2020_2024.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Productividad - Cubos/Productividad de Cubos 2020-2024/Cubos_completos_2020_2024.parquet'
 ) AS c
 
 LEFT JOIN catalogos_clues_tmp AS cat
@@ -91,10 +90,10 @@ WITH base AS (
     LOWER(tipo_consulta) AS tipo_consulta
   FROM read_parquet(
     [
-      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2024_a_31_12_2024.parquet',
-      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2024_a_31_12_2024.parquet',
-      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2024_a_31_12_2024.parquet',
-      'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2024_a_31_12_2024.parquet'
+      'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2024_a_31_12_2024.parquet',
+      'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2024_a_31_12_2024.parquet'
     ],
     union_by_name = true
   )
@@ -143,7 +142,7 @@ SELECT
   COUNT(*) AS procedimientos_quirurgicos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2024 nuevo.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2024 nuevo.parquet'
 )
 
 GROUP BY
@@ -167,7 +166,7 @@ SELECT
   COUNT(*) AS egresos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2024 nuevo.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2024 nuevo.parquet'
 )
 
 GROUP BY
@@ -180,6 +179,7 @@ ORDER BY
   fecha,
   fecha_insert
 ")
+
 
 df_2024 <- full_join(df_2024_consultas, df_2024_pq,
                      by = c("clues", "fecha","fecha_insert")) %>% 
@@ -209,10 +209,10 @@ SELECT
 
 FROM read_parquet(
   [
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2025_a_31_12_2025.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2025_a_31_12_2025.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2025_a_31_12_2025.parquet',
-    'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2025_a_31_12_2025.parquet'
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/consulta_externa_01_01_2025_a_31_12_2025.parquet',
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/planificacion_familiar_01_01_2025_a_31_12_2025.parquet',
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_bucal_01_01_2025_a_31_12_2025.parquet',
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/Bases originales/historicos/salud_mental_01_01_2025_a_31_12_2025.parquet'
   ],
   union_by_name = true
 )
@@ -237,7 +237,7 @@ SELECT
   COUNT(*) AS procedimientos_quirurgicos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2025 nuevo.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales procedimientos/quirurgicos 2025 nuevo.parquet'
 )
 
 GROUP BY
@@ -260,7 +260,7 @@ SELECT
   COUNT(*) AS egresos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2025 nuevo.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/89_correciones_parquets_dn/finales egresos/egresos 2025 nuevo.parquet'
 )
 
 GROUP BY
@@ -298,7 +298,7 @@ df_2026_consultas <- dbGetQuery(con, glue::glue("
         END) AS consultas_de_especialidad
 
   FROM read_parquet(
-    'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/consultas_con_ECE_2026.parquet'
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/consultas_con_ECE_2026.parquet'
   )
 
   WHERE CAST(fecha_insert AS DATE) <= DATE '{fecha_corte}'
@@ -322,7 +322,7 @@ df_2026_pq <- dbGetQuery(con, glue::glue("
     COUNT(*) AS procedimientos_quirurgicos
 
   FROM read_parquet(
-    'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/proc_qx_con_ECE_2026.parquet'
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/proc_qx_con_ECE_2026.parquet'
   )
 
   WHERE CAST(fecha_insert AS DATE) <= DATE '{fecha_corte}'
@@ -346,7 +346,7 @@ df_2026_egresos <- dbGetQuery(con, glue::glue("
     COUNT(*) AS egresos
 
   FROM read_parquet(
-    'C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/egresos_con_ECE_2026.parquet'
+    'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/78_transicion sistemas prod/data/egresos_con_ECE_2026.parquet'
   )
 
   WHERE CAST(CAST(fecha_insert AS VARCHAR) AS DATE) <= DATE '{fecha_corte}'
@@ -390,7 +390,7 @@ SELECT
   SUM(CASE WHEN tipo_procedimiento = 'egresos' THEN personas ELSE 0 END) AS personas_egresos
 
 FROM read_parquet(
-  'C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/fecha_insert_al_corte_todos.parquet'
+  'C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/fecha_insert_al_corte_todos.parquet'
 )
 
 WHERE anio_insert IS NOT NULL
@@ -406,7 +406,7 @@ ORDER BY
 dbDisconnect(con, shutdown = TRUE)
 # Estimaciones de modelo profet -------------------------------------------
 modelo_profet <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx") %>% 
+  "C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx") %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             nowcast, observadas) %>% 
   filter(fecha >= "2026-01-01") %>% 
@@ -421,7 +421,7 @@ modelo_profet <- readxl::read_xlsx(
             egresos = sum(egresos))
 
 modelo_profet_entidad <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+  "C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -461,7 +461,7 @@ modelo_profet_entidad <- readxl::read_xlsx(
     "Yucatán", "Yucatan"))
 
 modelo_profet_completo_nowcast <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+  "C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -538,7 +538,7 @@ fecha_block <- block_list(
       line_spacing = 1)))
 
 hbc_bajos <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/cluster_11_rutas_geo_rutas_sencillo_VF23022026.xlsx"
+  "C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/cluster_11_rutas_geo_rutas_sencillo_VF23022026.xlsx"
 ) %>%
   dplyr::pull(clues_imb_hbc)
 # Metas y totales de años previos --------------------------------------------------------------
@@ -1545,7 +1545,7 @@ valuebox_8 <- do.call(
 # -------------------------------------------------------------------------
 #PRESENTACION
 # -------------------------------------------------------------------------
-pptx <- read_pptx("C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/Master presentación nacional.pptx")
+pptx <- read_pptx("C:/Users/Cecilia Pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data raw/Master presentación nacional.pptx")
 
 pptx <- pptx %>%
   add_slide(layout = "Portada 3", master = "Tema de Office") %>%
@@ -1960,7 +1960,7 @@ pptx <- pptx %>%
     location = ph_location_label("value"))
 
 print(pptx, target = paste0(
-        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026",
+        "C:/Users/Cecilia Pereo/Downloads/Reporte Nacional 2026",
         " (semana ",
          num_semana,")",".pptx"))
 
