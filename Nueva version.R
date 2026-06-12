@@ -406,7 +406,8 @@ ORDER BY
 dbDisconnect(con, shutdown = TRUE)
 # Estimaciones de modelo profet -------------------------------------------
 modelo_profet <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx") %>% 
+  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx"
+  ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             nowcast, observadas) %>% 
   filter(fecha >= "2026-01-01") %>% 
@@ -421,7 +422,8 @@ modelo_profet <- readxl::read_xlsx(
             egresos = sum(egresos))
 
 modelo_profet_entidad <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+"C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
+sheet = "Sheet 1"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -461,7 +463,8 @@ modelo_profet_entidad <- readxl::read_xlsx(
     "Yucatán", "Yucatan"))
 
 modelo_profet_completo_nowcast <- readxl::read_xlsx(
-  "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes_estados.xlsx"
+"C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
+sheet = "Sheet 1"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -1150,6 +1153,7 @@ data_pq_t <- data_pq_entidad %>%
 
 tabla_final <- full_join(data_cg_t, data_ce_t, by = "entidad") %>% 
   full_join(data_pq_t, by = "entidad") %>%
+  filter(entidad != "Yucatan") %>% 
   mutate(
     pct_cg_tope = pmin(pct_cg, pct_al_dia, na.rm = TRUE),
     pct_ce_tope = pmin(pct_ce, pct_al_dia, na.rm = TRUE),
