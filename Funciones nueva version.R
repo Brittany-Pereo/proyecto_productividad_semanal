@@ -629,34 +629,34 @@ ft_base_ajustada <- function(df, W_PH, H_PH,
   if ("avance_global" %in% names(df)) {
     ft <- ft %>%
       flextable::bg(
-        i = ~ avance_global < pct_al_dia * 0.50,
+        i = ~ avance_global < pct_al_dia * 0.60,
         j = "avance_global",
         bg = "#F34949"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia * 0.75,
+        i = ~ avance_global >= pct_al_dia * 0.60 & avance_global < pct_al_dia * 0.8,
         j = "avance_global",
         bg = "#F5DD61"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia * 0.75 & avance_global < pct_al_dia,
+        i = ~ avance_global >= pct_al_dia * 0.8 & avance_global < pct_al_dia * 0.95,
         j = "avance_global",
         bg = "#A9D18E"
       ) %>%
       flextable::bg(
-        i = ~ avance_global >= pct_al_dia,
+        i = ~ avance_global >= pct_al_dia * 0.95,
         j = "avance_global",
         bg = "#006657"
       ) %>%
       flextable::color(
-        i = ~ avance_global < pct_al_dia * 0.50 | avance_global >= pct_al_dia,
-        j = "avance_global",
-        color = "white"
-      ) %>%
-      flextable::color(
-        i = ~ avance_global >= pct_al_dia * 0.50 & avance_global < pct_al_dia,
+        i = ~ avance_global < pct_al_dia * 0.95,
         j = "avance_global",
         color = "black"
+      ) %>%
+      flextable::color(
+        i = ~ avance_global >= pct_al_dia * 0.95,
+        j = "avance_global",
+        color = "white" 
       )
   }
   
@@ -862,6 +862,21 @@ grafica_avance_entidades <- function(
   
   n_ent <- length(levels(df_plot$entidad))
   
+  # Eje X dinámico:
+  # si alguna entidad o la meta supera 70%, breaks de 10 en 10
+  max_pct_grafica <- max(
+    df_plot$pct_modelo,
+    df_plot$pct_avance,
+    meta_linea,
+    na.rm = TRUE
+  )
+  
+  breaks_x <- if (max_pct_grafica > 0.60) {
+    seq(0, x_max, by = 0.10)
+  } else {
+    seq(0, x_max, by = breaks_by)
+  }
+  
   ggplot2::ggplot(df_plot, ggplot2::aes(y = entidad)) +
     
     ggplot2::geom_col(
@@ -941,7 +956,7 @@ grafica_avance_entidades <- function(
     
     ggplot2::scale_x_continuous(
       limits = c(0, x_max + extra_derecha),
-      breaks = seq(0, x_max, by = breaks_by),
+      breaks = breaks_x,
       labels = scales::percent_format(accuracy = 1),
       expand = c(0, 0)
     ) +
@@ -963,7 +978,6 @@ grafica_avance_entidades <- function(
       panel.border = ggplot2::element_blank()
     )
 }
-
 
 grafica_semanal_procedimiento <- function(
     bases_todas,
