@@ -337,7 +337,7 @@ df_2026_pq <- dbGetQuery(con, glue::glue("
     fecha,
     fecha_insert
 "))
-  
+
 df_2026_egresos <- dbGetQuery(con, glue::glue("
   SELECT
     clues,
@@ -367,7 +367,7 @@ df_2026 <- full_join(df_2026_consultas, df_2026_pq,
   full_join(df_2026_egresos, by = c("clues", "fecha", "fecha_insert"))
 # BASES JUNTAS ------------------------------------------------------------
 df_final <- bind_rows(df_2020_2023, df_2024, df_2025, df_2026
-                      ) %>% 
+) %>% 
   mutate(across(
     where(is.numeric),~ tidyr::replace_na(.x, 0))) %>% 
   filter(!is.na(fecha))
@@ -407,7 +407,7 @@ dbDisconnect(con, shutdown = TRUE)
 # Estimaciones de modelo profet -------------------------------------------
 modelo_profet <- readxl::read_xlsx(
   "C:/Users/brittany.pereo/IMSS-BIENESTAR/División de Procesamiento de información - Proyectos/66_Productividad Nacional 2026/Data/profet/nowcast_todes.xlsx"
-  ) %>% 
+) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             nowcast, observadas) %>% 
   filter(fecha >= "2026-01-01") %>% 
@@ -422,8 +422,8 @@ modelo_profet <- readxl::read_xlsx(
             egresos = sum(egresos))
 
 modelo_profet_entidad <- readxl::read_xlsx(
-"C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
-sheet = "Sheet 1"
+  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
+  sheet = "Sheet 1"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -457,14 +457,14 @@ sheet = "Sheet 1"
     consultas_de_especialidad_diferencias = consultas_de_especialidad_nowcast - consultas_de_especialidad_observadas,
     procedimientos_quirurgicos_diferencias = procedimientos_quirurgicos_nowcast - procedimientos_quirurgicos_observadas,
     egresos_diferencias = egresos_nowcast -egresos_observadas
-    ) %>% 
+  ) %>% 
   filter(!entidad %in% c(
     "Iniems", "Guanajuato",
     "Yucatán", "Yucatan"))
 
 modelo_profet_completo_nowcast <- readxl::read_xlsx(
-"C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
-sheet = "Sheet 1"
+  "C:/Users/brittany.pereo/OneDrive - IMSS-BIENESTAR/División de Procesamiento de información - Repositorio de Datos/Productividad/conteos con ece/nowcast_todes_estados.xlsx",
+  sheet = "Sheet 1"
 ) %>% 
   transmute(fecha = as.Date(dia), tipo_consulta,
             observadas, nowcast, entidad) %>% 
@@ -1825,7 +1825,7 @@ pptx <- pptx %>%
       pct_2024 = scales::percent(avance_2024_t_insert / productividad_cg_2024),
       pct_2025 = scales::percent(avance_2025_t_insert/ productividad_cg_2025),
       pct_2026 = scales::percent(avance_2026_t_insert / productividad_cg_2026)
-      ),
+    ),
     location = ph_location_label("tabla_1")) %>%
   ph_with(value = rvg::dml(ggobj = grafica_semanal_tot_rez$plot),
           location = ph_location_label("Grafica")) %>%
@@ -1964,7 +1964,7 @@ pptx <- pptx %>%
     location = ph_location_label("value"))
 
 print(pptx, target = paste0(
-        "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026",
-        " (semana ",
-         num_semana,")",".pptx"))
+  "C:/Users/brittany.pereo/Downloads/Reporte Nacional 2026",
+  " (semana ",
+  num_semana,")",".pptx"))
 

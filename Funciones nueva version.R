@@ -1366,7 +1366,6 @@ generar_graficas_productividad <- function(variable, nombre_titulo) {
   # Acumulado: modelo_profet al corte
   # Mes: modelo_profet_completo_nowcast al cierre del mes
   # -----------------------------------------------------------------------
-  
   proyeccion_2026_corte <- modelo_profet_completo_nowcast %>% 
     dplyr::filter(
       fecha >= as.Date("2026-01-01"),
