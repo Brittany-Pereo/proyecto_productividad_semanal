@@ -1242,6 +1242,70 @@ ft_3_2 <- ft_estilo_menor(tabla_3_2) %>%
   flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
   flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
 
+# Menor rendimiento en cirugias dentro de hospitales ---------------------------
+tabla_3_1 <- df_final %>%
+  filter(lubridate::year(fecha) == 2026) %>% 
+  group_by(clues) %>%
+  summarise(
+    avance = sum(procedimientos_quirurgicos, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  left_join(
+    catalogos_clues %>% 
+      select(clues = clues_imb, nombre_comercial, entidad,
+             categoria_gerencial),
+    by = "clues"
+  ) %>%
+  filter(!categoria_gerencial %in% c("UNEME", "Unidades moviles"),
+         !is.na(categoria_gerencial)) %>% 
+  left_join(
+    catalogo_metas %>% 
+      select(clues = clues_imb, meta_cirugia_anual),
+    by = "clues"
+  ) %>%
+  filter(
+    meta_cirugia_anual > 0,
+    !clues %in% hbc_bajos
+  ) %>%
+  mutate(
+    meta_actual = meta_cirugia_anual * (num_semana / 52),
+    cumplimiento_num_2s = avance / meta_actual,
+    entidad = case_when(
+      entidad == "VERACRUZ DE IGNACIO DE LA LLAVE" ~ "Veracruz",
+      entidad == "MICHOACAN DE OCAMPO" ~ "Michoacán",
+      TRUE ~ stringr::str_to_title(entidad)
+    ),
+    nombre_comercial = nombre_comercial %>%
+      stringr::str_to_title() %>%
+      stringr::str_replace_all("\\bHg\\b", "HG") %>%
+      stringr::str_replace_all("\\bImss\\b", "IMSS")
+  ) %>%
+  arrange(cumplimiento_num_2s) %>%
+  filter(cumplimiento_num_2s <= meta_hoy * 0.49) %>% 
+  transmute(
+    `#` = row_number(),
+    CLUES = clues,
+    `Nombre de la unidad` = nombre_comercial,
+    Entidad = entidad,
+    Avance = avance,
+    `Meta acumulada` = round(meta_actual),
+    `Cumplimiento %` = round(cumplimiento_num_2s * 100, 1)
+  )
+
+n_por_slide_1 <- 10
+n_por_slide_2 <- 7
+
+tabla_3_1_1 <- dplyr::slice(tabla_3_1, 1:n_por_slide_1)
+tabla_3_2_1 <- dplyr::slice(tabla_3_1, (n_por_slide_1 + 1):dplyr::n())
+
+ft_3_1_1 <- ft_estilo_menor(tabla_3_1_1) %>%
+  flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
+  flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
+
+ft_3_2_1 <- ft_estilo_menor(tabla_3_2_1) %>%
+  flextable::fontsize(size = 14, part = "all") %>%   # letras más grandes
+  flextable::width(width = c(0.5, 1.6, 4.5, 1.5, 1, 1.4, 1.6))  # columnas más anchas
+
 # Graficas semanales por fecha insert -------------------------------------
 # Bases semanales por fecha de registro ----------------------------------
 avance_entidad <- df_final %>% 
@@ -1782,7 +1846,7 @@ pptx <- pptx %>%
   add_slide(layout = "Una grafica", master = "Tema de Office") %>%
   ph_with("Unidades médicas con menor rendimiento en cirugías",
           ph_location_label("Título 1")) %>%
-  ph_with(value = ft_3_1,
+  ph_with(value = ft_3_1_1,
           location = ph_location(
             left   = 0.55,
             top    = 1.62,
@@ -1793,13 +1857,34 @@ pptx <- pptx %>%
   add_slide(layout = "Una grafica", master = "Tema de Office") %>%
   ph_with("Unidades médicas con menor rendimiento en cirugías",
           ph_location_label("Título 1")) %>%
-  ph_with(value = ft_3_2,
+  ph_with(value = ft_3_2_1,
           location = ph_location(
             left   = 0.55,
             top    = 1.62,
             width  = 16.85,
             height = 10.45))
 
+pptx <- pptx %>%
+  add_slide(layout = "Una grafica", master = "Tema de Office") %>%
+  ph_with("Unidades médicas sin avance en cirugías",
+          ph_location_label("Título 1")) %>%
+  ph_with(value = ft_3_1,
+          location = ph_location(
+            left   = 0.55,
+            top    = 1.62,
+            width  = 16.85,
+            height = 10.45))
+
+pptx <- pptx %>%
+  add_slide(layout = "Una grafica", master = "Tema de Office") %>%
+  ph_with("Unidades médicas sin avance en cirugías",
+          ph_location_label("Título 1")) %>%
+  ph_with(value = ft_3_2,
+          location = ph_location(
+            left   = 0.55,
+            top    = 1.62,
+            width  = 16.85,
+            height = 10.45))
 
 pptx <- pptx %>%
   add_slide(layout = "Anexo",
